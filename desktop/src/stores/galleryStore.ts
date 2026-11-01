@@ -30,3 +30,4 @@ export const useGalleryStore = create<GalleryState>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error, isLoading: false }),
 }));
+

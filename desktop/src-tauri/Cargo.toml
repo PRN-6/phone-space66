@@ -1,6 +1,6 @@
 [package]
 name = "phonespace66"
-version = "0.1.0"
+version = "1.0.0"
 description = "PHONE SPACE66 Desktop Application"
 authors = ["PHONE SPACE66 Core Team"]
 license = "MIT"

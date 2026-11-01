@@ -258,3 +258,4 @@ export const GalleryWindow: React.FC = () => {
     </div>
   );
 };
+

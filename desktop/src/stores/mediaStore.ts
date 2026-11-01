@@ -29,3 +29,4 @@ export const useMediaStore = create<MediaState>((set) => ({
       isWidgetVisible: visible !== undefined ? visible : !state.isWidgetVisible,
     })),
 }));
+

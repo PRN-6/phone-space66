@@ -54,3 +54,4 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       unreadCount: (open === true || (open === undefined && !state.isDrawerOpen)) ? 0 : state.unreadCount,
     })),
 }));
+
