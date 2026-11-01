@@ -144,3 +144,4 @@ export const useFileManagerStore = create<FileManagerState>((set, get) => ({
   setIsNewFolderModalOpen: (isNewFolderModalOpen) => set({ isNewFolderModalOpen }),
   setIsDeleteConfirmOpen: (isDeleteConfirmOpen) => set({ isDeleteConfirmOpen }),
 }));
+

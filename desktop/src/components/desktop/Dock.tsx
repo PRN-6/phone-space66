@@ -8,13 +8,17 @@ import {
   Image,
   Settings,
   ShieldCheck,
+  Bell,
+  ArrowUpDown,
+  Home,
 } from 'lucide-react';
 import { useWindowStore } from '../../stores/windowStore';
 import { useConnectionStore } from '../../stores/connectionStore';
+import { useTransferStore } from '../../stores/transferStore';
 import { WindowId } from '../../types/window';
 
 interface DockItem {
-  id: WindowId | 'launcher';
+  id: string;
   label: string;
   icon: React.ReactNode;
   action: () => void;
@@ -23,12 +27,32 @@ interface DockItem {
 }
 
 export const Dock: React.FC = () => {
-  const { windows, activeWindowId, openWindow, toggleLauncher, isLauncherOpen } = useWindowStore();
+  const {
+    windows,
+    activeWindowId,
+    openWindow,
+    toggleLauncher,
+    isLauncherOpen,
+    toggleNotificationCenter,
+    isNotificationCenterOpen,
+    minimizeAll,
+  } = useWindowStore();
   const { setShowPairingModal, status } = useConnectionStore();
+  const { toggleTransferManager, isTransferManagerOpen, transfers } = useTransferStore();
 
   const isWindowOpen = (id: WindowId) => windows.some((w) => w.id === id && !w.isMinimized);
 
+  const activeTransfersCount = transfers.filter((t) => t.status === 'active').length;
+
   const dockItems: DockItem[] = [
+    {
+      id: 'home',
+      label: 'Show Desktop',
+      icon: <Home className="w-5 h-5 text-silver-300" />,
+      action: () => minimizeAll(),
+      isOpen: false,
+      isActive: false,
+    },
     {
       id: 'launcher',
       label: 'Applications',
@@ -38,20 +62,20 @@ export const Dock: React.FC = () => {
       isActive: isLauncherOpen,
     },
     {
-      id: 'dashboard',
-      label: 'Phone Diagnostics',
-      icon: <Activity className="w-5 h-5 text-silver-200" />,
-      action: () => openWindow('dashboard'),
-      isOpen: isWindowOpen('dashboard'),
-      isActive: activeWindowId === 'dashboard',
-    },
-    {
       id: 'file-manager',
       label: 'File Manager',
-      icon: <Folder className="w-5 h-5 text-silver-300" />,
+      icon: <Folder className="w-5 h-5 text-silver-200" />,
       action: () => openWindow('file-manager'),
       isOpen: isWindowOpen('file-manager'),
       isActive: activeWindowId === 'file-manager',
+    },
+    {
+      id: 'dashboard',
+      label: 'Phone Diagnostics',
+      icon: <Activity className="w-5 h-5 text-silver-100" />,
+      action: () => openWindow('dashboard'),
+      isOpen: isWindowOpen('dashboard'),
+      isActive: activeWindowId === 'dashboard',
     },
     {
       id: 'screen-mirror',
@@ -68,6 +92,22 @@ export const Dock: React.FC = () => {
       action: () => openWindow('gallery'),
       isOpen: isWindowOpen('gallery'),
       isActive: activeWindowId === 'gallery',
+    },
+    {
+      id: 'transfers',
+      label: `Transfers ${activeTransfersCount > 0 ? `(${activeTransfersCount})` : ''}`,
+      icon: <ArrowUpDown className="w-5 h-5 text-silver-300" />,
+      action: () => toggleTransferManager(),
+      isOpen: isTransferManagerOpen,
+      isActive: isTransferManagerOpen,
+    },
+    {
+      id: 'notifications',
+      label: 'Notifications',
+      icon: <Bell className="w-5 h-5 text-silver-200" />,
+      action: () => toggleNotificationCenter(),
+      isOpen: isNotificationCenterOpen,
+      isActive: isNotificationCenterOpen,
     },
     {
       id: 'pairing-dialog',

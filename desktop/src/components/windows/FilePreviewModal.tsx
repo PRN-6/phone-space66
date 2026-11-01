@@ -160,3 +160,4 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClos
     </AnimatePresence>
   );
 };
+

@@ -68,3 +68,4 @@ export const useTransferStore = create<TransferState>((set) => ({
       isTransferManagerOpen: open !== undefined ? open : !state.isTransferManagerOpen,
     })),
 }));
+

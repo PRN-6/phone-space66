@@ -6,6 +6,9 @@ import { QuickSettings } from './QuickSettings';
 import { PairingModal } from './PairingModal';
 import { LauncherModal } from '../windows/LauncherModal';
 import { TransferManagerWindow } from '../windows/TransferManagerWindow';
+import { NotificationCenter } from './NotificationCenter';
+import { DesktopContextMenu } from './DesktopContextMenu';
+import { WindowSwitcherModal } from './WindowSwitcherModal';
 import { WindowFrame } from '../windows/WindowFrame';
 import { DeviceDashboardWindow } from '../windows/DeviceDashboardWindow';
 import { FileManagerWindow } from '../windows/FileManagerWindow';
@@ -16,20 +19,45 @@ import { useConnectionStore } from '../../stores/connectionStore';
 import { discoveryService } from '../../services/discoveryService';
 
 export const DesktopEnvironment: React.FC = () => {
-  const { windows, toggleLauncher, openWindow, toggleQuickSettings } = useWindowStore();
+  const {
+    windows,
+    snapPreview,
+    toggleLauncher,
+    openWindow,
+    toggleQuickSettings,
+    toggleNotificationCenter,
+    toggleWindowSwitcher,
+    cycleWindow,
+    isWindowSwitcherOpen,
+    setContextMenu,
+  } = useWindowStore();
   const { setShowPairingModal } = useConnectionStore();
 
   useEffect(() => {
-    // Start background mDNS LAN device discovery on boot
+    // Start background mDNS LAN device discovery
     discoveryService.startDiscovery();
 
     // Global Desktop Keyboard Shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape: Close modals
+      // Escape: Close active overlays
       if (e.key === 'Escape') {
         toggleLauncher(false);
         toggleQuickSettings(false);
+        toggleNotificationCenter(false);
         setShowPairingModal(false);
+        setContextMenu(null);
+        toggleWindowSwitcher(false);
+        return;
+      }
+
+      // Alt + Tab or Super + Tab: Window Task Switcher
+      if ((e.altKey || e.metaKey) && e.key === 'Tab') {
+        e.preventDefault();
+        if (!isWindowSwitcherOpen) {
+          toggleWindowSwitcher(true);
+        } else {
+          cycleWindow(!e.shiftKey);
+        }
         return;
       }
 
@@ -55,12 +83,37 @@ export const DesktopEnvironment: React.FC = () => {
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Alt' || e.key === 'Meta') {
+        if (isWindowSwitcherOpen) {
+          toggleWindowSwitcher(false);
+        }
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
       discoveryService.stopDiscovery();
     };
-  }, [toggleLauncher, openWindow, toggleQuickSettings, setShowPairingModal]);
+  }, [
+    toggleLauncher,
+    openWindow,
+    toggleQuickSettings,
+    toggleNotificationCenter,
+    setShowPairingModal,
+    setContextMenu,
+    isWindowSwitcherOpen,
+    toggleWindowSwitcher,
+    cycleWindow,
+  ]);
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
 
   const renderWindowContent = (id: string) => {
     switch (id) {
@@ -80,12 +133,27 @@ export const DesktopEnvironment: React.FC = () => {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-charcoal-950 font-sans select-none">
+    <div
+      onContextMenu={handleContextMenu}
+      className="relative w-screen h-screen overflow-hidden bg-charcoal-950 font-sans select-none"
+    >
       {/* Dynamic Wallpaper */}
       <Wallpaper />
 
       {/* Top Status Bar */}
       <TopStatusBar />
+
+      {/* Snap Ghost Preview Outline */}
+      {snapPreview && (
+        <div
+          style={{
+            transform: `translate3d(${snapPreview.x}px, ${snapPreview.y}px, 0)`,
+            width: `${snapPreview.width}px`,
+            height: `${snapPreview.height}px`,
+          }}
+          className="fixed top-0 left-0 bg-charcoal-800/40 border-2 border-white/30 rounded-2xl pointer-events-none transition-all duration-150 z-30 shadow-glow-subtle backdrop-blur-[2px]"
+        />
+      )}
 
       {/* Window Manager Workspace Canvas */}
       <main className="absolute inset-0 pt-9 pb-16 overflow-hidden pointer-events-none">
@@ -99,12 +167,14 @@ export const DesktopEnvironment: React.FC = () => {
       {/* Bottom Dock */}
       <Dock />
 
-      {/* Flyouts & Overlays */}
+      {/* Overlays, Drawers & Modals */}
       <QuickSettings />
+      <NotificationCenter />
       <PairingModal />
       <LauncherModal />
       <TransferManagerWindow />
+      <DesktopContextMenu />
+      <WindowSwitcherModal />
     </div>
   );
 };
-

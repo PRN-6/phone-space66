@@ -14,6 +14,8 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win, children 
     closeWindow,
     minimizeWindow,
     maximizeWindow,
+    snapWindow,
+    setSnapPreview,
     updatePosition,
     updateSize,
     activeWindowId,
@@ -21,6 +23,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win, children 
 
   const isDraggingRef = useRef(false);
   const isResizingRef = useRef(false);
+  const pendingSnapRef = useRef<'left' | 'right' | 'top' | null>(null);
   const dragStartRef = useRef({ x: 0, y: 0, winX: 0, winY: 0 });
   const resizeStartRef = useRef({ x: 0, y: 0, winW: 0, winH: 0 });
 
@@ -36,6 +39,10 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win, children 
       winX: win.x,
       winY: win.y,
     };
+  };
+
+  const handleDoubleClickHeader = () => {
+    maximizeWindow(win.id);
   };
 
   const handleMouseDownResize = (e: React.MouseEvent) => {
@@ -59,6 +66,25 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win, children 
         const newX = Math.max(0, Math.min(window.innerWidth - 100, dragStartRef.current.winX + deltaX));
         const newY = Math.max(36, Math.min(window.innerHeight - 100, dragStartRef.current.winY + deltaY));
         updatePosition(win.id, newX, newY);
+
+        // Edge snapping preview detection
+        const topBarHeight = 36;
+        const usableHeight = window.innerHeight - topBarHeight - 64;
+        const halfWidth = Math.floor(window.innerWidth / 2);
+
+        if (e.clientX <= 25) {
+          pendingSnapRef.current = 'left';
+          setSnapPreview({ x: 0, y: topBarHeight, width: halfWidth, height: usableHeight });
+        } else if (e.clientX >= window.innerWidth - 25) {
+          pendingSnapRef.current = 'right';
+          setSnapPreview({ x: halfWidth, y: topBarHeight, width: halfWidth, height: usableHeight });
+        } else if (e.clientY <= 30) {
+          pendingSnapRef.current = 'top';
+          setSnapPreview({ x: 0, y: topBarHeight, width: window.innerWidth, height: usableHeight });
+        } else {
+          pendingSnapRef.current = null;
+          setSnapPreview(null);
+        }
       } else if (isResizingRef.current) {
         const deltaX = e.clientX - resizeStartRef.current.x;
         const deltaY = e.clientY - resizeStartRef.current.y;
@@ -69,6 +95,13 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win, children 
     };
 
     const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        if (pendingSnapRef.current) {
+          snapWindow(win.id, pendingSnapRef.current);
+          pendingSnapRef.current = null;
+        }
+        setSnapPreview(null);
+      }
       isDraggingRef.current = false;
       isResizingRef.current = false;
     };
@@ -79,7 +112,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win, children 
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [win.id, win.minWidth, win.minHeight, updatePosition, updateSize]);
+  }, [win.id, win.minWidth, win.minHeight, updatePosition, updateSize, snapWindow, setSnapPreview]);
 
   if (win.isMinimized) return null;
 
@@ -101,6 +134,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win, children 
       {/* Window Title Bar */}
       <div
         onMouseDown={handleMouseDownHeader}
+        onDoubleClick={handleDoubleClickHeader}
         className={`h-9 px-3 flex items-center justify-between select-none border-b ${
           isActive
             ? 'bg-charcoal-850 border-white/10 text-silver-100'

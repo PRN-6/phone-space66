@@ -4,6 +4,7 @@ import {
   BatteryCharging,
   Wifi,
   WifiOff,
+  Bell,
   Sliders,
   Minus,
   Square,
@@ -123,6 +124,16 @@ export const TopStatusBar: React.FC = () => {
         ) : (
           <WifiOff className="w-3.5 h-3.5 text-silver-500" />
         )}
+
+        {/* Notification Bell */}
+        <button
+          onClick={() => useWindowStore.getState().toggleNotificationCenter()}
+          className="p-1 rounded text-silver-400 hover:text-white hover:bg-charcoal-800 transition-colors relative"
+          title="Notification Center"
+        >
+          <Bell className="w-3.5 h-3.5" />
+          <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-silver-100 rounded-full" />
+        </button>
 
         {/* Quick Settings Toggle */}
         <button

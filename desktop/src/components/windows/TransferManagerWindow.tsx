@@ -152,3 +152,4 @@ export const TransferManagerWindow: React.FC = () => {
     </AnimatePresence>
   );
 };
+
