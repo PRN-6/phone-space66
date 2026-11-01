@@ -3,11 +3,17 @@ Write-Host "================================================================" -F
 Write-Host "     PHONE SPACE66 - LAUNCHING WIRED USB DESKTOP ENVIRONMENT    " -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
 
-# Check if phone is connected
 $rootPath = $PSScriptRoot
 if (-not $rootPath) { $rootPath = Get-Location }
 
-# Run detect script
+# Kill any previous bridge on port 6655 or 6656 to prevent port collision
+try {
+    Get-NetTCPConnection -LocalPort 6655,6656 -ErrorAction SilentlyContinue | ForEach-Object {
+        Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
+    }
+} catch {}
+
+# Detect connected phone
 node "$rootPath/scripts/detect_usb_phone.cjs"
 
 Write-Host "----------------------------------------------------------------" -ForegroundColor Gray
