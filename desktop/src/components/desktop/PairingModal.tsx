@@ -144,7 +144,7 @@ export const PairingModal: React.FC = () => {
                     <button
                       type="submit"
                       disabled={pinInput.length !== 6}
-                      className="flex-1 py-2.5 rounded-xl bg-silver-100 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-charcoal-950 flex items-center justify-center space-x-2 transition-colors"
+                      className="flex-1 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-750 border border-white/20 hover:border-white/35 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-silver-100 hover:text-white flex items-center justify-center space-x-2 transition-all"
                     >
                       <span>Authorize Pairing</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -190,7 +190,7 @@ export const PairingModal: React.FC = () => {
                           <button
                             onClick={() => handleConnect(device)}
                             disabled={isConnecting}
-                            className="px-3.5 py-1.5 rounded-lg bg-silver-100 hover:bg-white text-charcoal-950 text-xs font-semibold flex items-center space-x-1.5 transition-colors disabled:opacity-60"
+                            className="px-3.5 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 border border-white/15 hover:border-white/30 text-silver-100 text-xs font-semibold flex items-center space-x-1.5 transition-all disabled:opacity-60"
                           >
                             <span>{isConnecting ? 'Connecting...' : 'Connect'}</span>
                             <ArrowRight className="w-3 h-3" />

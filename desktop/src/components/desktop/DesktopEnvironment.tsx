@@ -157,7 +157,7 @@ export const DesktopEnvironment: React.FC = () => {
       )}
 
       {/* Window Manager Workspace Canvas */}
-      <main className="absolute inset-0 pt-9 pb-16 overflow-hidden pointer-events-none">
+      <main className="absolute inset-0 pt-9 pb-16 overflow-hidden pointer-events-none z-10">
         {windows.map((win) => (
           <div key={win.id} className="pointer-events-auto">
             <WindowFrame window={win}>{renderWindowContent(win.id)}</WindowFrame>

@@ -23,3 +23,4 @@
 -keep class com.phonespace66.companion.core.CompanionService { *; }
 -keep class com.phonespace66.companion.input.PhoneSpaceAccessibilityService { *; }
 -keep class com.phonespace66.companion.notifications.PhoneSpaceNotificationListenerService { *; }
+

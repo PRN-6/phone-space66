@@ -59,22 +59,24 @@ export const TopStatusBar: React.FC = () => {
   return (
     <header className="h-9 w-full bg-charcoal-900/95 backdrop-blur-md border-b border-white/[0.08] px-3.5 flex items-center justify-between text-xs select-none z-50">
       {/* Left: Brand & Phone Connection Status */}
-      <div className="flex items-center space-x-3.5">
+      <div className="flex items-center space-x-3 flex-shrink-0">
         <button
           onClick={() => openWindow('dashboard')}
-          className="flex items-center space-x-2 text-silver-100 hover:text-white transition-colors focus:outline-none"
+          className="flex items-center space-x-2 text-silver-100 hover:text-white transition-colors focus:outline-none flex-shrink-0"
         >
-          <img src="/logo.svg" alt="PHONE SPACE66" className="w-4.5 h-4.5" />
-          <span className="font-bold tracking-wider font-mono text-silver-100">PHONE SPACE66</span>
+          <img src="/logo.svg" alt="PHONE SPACE66" className="w-5 h-5 object-contain flex-shrink-0" />
+          <span className="font-bold tracking-wider font-mono text-silver-100 whitespace-nowrap text-xs">
+            PHONE SPACE66
+          </span>
         </button>
 
-        <div className="h-3 w-px bg-white/10" />
+        <div className="h-3.5 w-px bg-white/10 flex-shrink-0" />
 
         {/* Connected Device Capsule */}
         {isConnected && hardware ? (
           <button
             onClick={() => openWindow('dashboard')}
-            className="flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-charcoal-800 border border-white/10 text-silver-200 hover:bg-charcoal-750 hover:border-white/20 transition-all"
+            className="flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-charcoal-800 border border-white/10 text-silver-200 hover:bg-charcoal-750 hover:border-white/20 transition-all flex-shrink-0 whitespace-nowrap"
           >
             <Smartphone className="w-3.5 h-3.5 text-silver-300" />
             <span className="font-medium text-[11px]">{hardware.model}</span>
@@ -85,7 +87,7 @@ export const TopStatusBar: React.FC = () => {
         ) : (
           <button
             onClick={() => setShowPairingModal(true)}
-            className="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-charcoal-850 border border-white/10 text-silver-400 hover:text-silver-200 hover:border-white/20 transition-all"
+            className="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-charcoal-850 border border-white/10 text-silver-400 hover:text-silver-200 hover:border-white/20 transition-all flex-shrink-0 whitespace-nowrap"
           >
             <Radio className="w-3.5 h-3.5 text-silver-400 animate-pulse" />
             <span className="text-[11px]">

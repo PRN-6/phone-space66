@@ -150,3 +150,4 @@ fs.writeFileSync(path.join(iconsDir, 'icon.ico'), ico);
 fs.writeFileSync(path.join(iconsDir, 'icon.icns'), png512);
 
 console.log('App icons generated in:', iconsDir);
+

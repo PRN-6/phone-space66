@@ -44,3 +44,4 @@ Write-Host "  cd android; ./gradlew assembleRelease" -ForegroundColor White
 Write-Host "`n================================================================" -ForegroundColor Cyan
 Write-Host "  PHONE SPACE66 PACKAGING RECIPES READY" -ForegroundColor Cyan
 Write-Host "================================================================" -ForegroundColor Cyan
+

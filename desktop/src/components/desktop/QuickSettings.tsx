@@ -156,9 +156,9 @@ export const QuickSettings: React.FC = () => {
                   toggleQuickSettings(false);
                   useConnectionStore.getState().setShowPairingModal(true);
                 }}
-                className="w-full py-2 px-3 rounded-lg bg-silver-100 hover:bg-white text-xs font-bold text-charcoal-950 flex items-center justify-center space-x-2 transition-colors"
+                className="w-full py-2 px-3 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 border border-white/15 hover:border-white/30 text-xs font-bold text-silver-100 hover:text-white flex items-center justify-center space-x-2 transition-all"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-charcoal-950" />
+                <RefreshCw className="w-3.5 h-3.5 text-silver-300" />
                 <span>Connect Phone Now</span>
               </button>
             )}

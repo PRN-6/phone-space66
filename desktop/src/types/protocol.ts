@@ -60,6 +60,21 @@ export interface ProtocolMessage<T = unknown> {
   payload: T;
 }
 
+export function createMessage<T>(
+  type: MessageType,
+  payload: T,
+  authToken?: string
+): ProtocolMessage<T> {
+  return {
+    protocolVersion: PROTOCOL_VERSION,
+    messageId: 'msg-' + Math.random().toString(36).substring(2, 10),
+    type,
+    timestamp: new Date().toISOString(),
+    authToken,
+    payload,
+  };
+}
+
 export interface DiscoveredDevice {
   id: string;
   name: string;

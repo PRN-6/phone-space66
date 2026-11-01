@@ -11,6 +11,9 @@ export type ConnectionStatus =
 
 interface ConnectionState {
   status: ConnectionStatus;
+  isConnected: boolean;
+  targetIp: string;
+  targetHttpPort: number;
   discoveredDevices: DiscoveredDevice[];
   activeDevice: DiscoveredDevice | null;
   authToken: string | null;
@@ -35,6 +38,9 @@ interface ConnectionState {
 
 export const useConnectionStore = create<ConnectionState>((set) => ({
   status: 'disconnected',
+  isConnected: false,
+  targetIp: '',
+  targetHttpPort: 6656,
   discoveredDevices: [],
   activeDevice: null,
   authToken: localStorage.getItem('phonespace66_auth_token') || null,
@@ -44,7 +50,7 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
   showPairingModal: false,
   manualIp: '',
 
-  setStatus: (status) => set({ status }),
+  setStatus: (status) => set({ status, isConnected: status === 'connected' }),
   setDiscoveredDevices: (discoveredDevices) => set({ discoveredDevices }),
   addDiscoveredDevice: (device) =>
     set((state) => {
@@ -58,7 +64,12 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
       }
       return { discoveredDevices: [...state.discoveredDevices, device] };
     }),
-  setActiveDevice: (activeDevice) => set({ activeDevice }),
+  setActiveDevice: (activeDevice) =>
+    set({
+      activeDevice,
+      targetIp: activeDevice?.ipAddress || '',
+      targetHttpPort: 6656,
+    }),
   setAuthToken: (authToken) => {
     if (authToken) {
       localStorage.setItem('phonespace66_auth_token', authToken);
@@ -75,10 +86,12 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
   disconnect: () =>
     set({
       status: 'disconnected',
+      isConnected: false,
       activeDevice: null,
+      targetIp: '',
+      targetHttpPort: 6656,
       latencyMs: null,
       error: null,
       pendingChallenge: null,
     }),
 }));
-

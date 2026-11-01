@@ -42,7 +42,16 @@ export const GalleryWindow: React.FC = () => {
   };
 
   const handleDownload = (item: GalleryItem) => {
-    fileTransferService.downloadFile(item.path, item.name, item.sizeBytes);
+    fileTransferService.downloadFile({
+      name: item.name,
+      path: item.path,
+      sizeBytes: item.sizeBytes,
+      isDirectory: false,
+      mimeType: item.mimeType,
+      extension: item.name.split('.').pop() || '',
+      modifiedAt: item.modifiedAt,
+      isWritable: false,
+    });
   };
 
   const formatFileSize = (bytes: number) => {
