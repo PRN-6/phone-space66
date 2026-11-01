@@ -311,8 +311,10 @@ const httpServer = http.createServer((req, res) => {
   const urlObj = new URL(req.url, `http://127.0.0.1:${HTTP_PORT}`);
 
   if (urlObj.pathname === '/ping') {
+    const status = queryPhoneMtp();
+    const model = status.deviceName || 'Pixel 10a';
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: 'ready', model: 'realme 9 Pro 5G' }));
+    res.end(JSON.stringify({ status: 'ready', model }));
     return;
   }
 
@@ -368,8 +370,10 @@ const httpServer = http.createServer((req, res) => {
 // WebSocket Server on Port 6655
 const wsServer = http.createServer((req, res) => {
   if (req.url === '/ping') {
+    const status = queryPhoneMtp();
+    const model = status.deviceName || 'Pixel 10a';
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify({ status: 'ready', model: 'realme 9 Pro 5G' }));
+    res.end(JSON.stringify({ status: 'ready', model }));
     return;
   }
   res.writeHead(404);
@@ -492,11 +496,13 @@ function sendWs(socket, type, payload) {
 function handleClientMessage(socket, msg) {
   switch (msg.type) {
     case 'PAIR_REQUEST': {
+      const status = queryPhoneMtp();
+      const phoneName = status.deviceName || 'Pixel 10a';
       sendWs(socket, 'PAIR_SUCCESS', {
-        authToken: 'pst_usb_realme_' + Date.now(),
+        authToken: 'pst_usb_' + Date.now(),
         expiresAt: Date.now() + 86400000,
-        phoneId: 'usb-realme-9-pro',
-        phoneName: 'realme 9 Pro 5G',
+        phoneId: 'usb-phone-' + phoneName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+        phoneName: phoneName,
       });
       break;
     }
@@ -504,12 +510,39 @@ function handleClientMessage(socket, msg) {
     // Phone Diagnostics & Telemetry
     case 'DEVICE_INFO_REQUEST': {
       const status = queryPhoneMtp();
+      const detectedName = status.deviceName || 'Pixel 10a';
+      let manufacturer = 'Google';
+      let marketName = detectedName;
+      let osLabel = '14.0 (Android 14)';
+
+      if (/pixel/i.test(detectedName)) {
+        manufacturer = 'Google';
+        marketName = `${detectedName} (Tensor Processor)`;
+        osLabel = '14.0 (Google Pixel UI)';
+      } else if (/realme/i.test(detectedName)) {
+        manufacturer = 'realme';
+        marketName = `${detectedName} (Snapdragon 695 5G)`;
+        osLabel = '14.0 (Realme UI 5.0)';
+      } else if (/galaxy|samsung/i.test(detectedName)) {
+        manufacturer = 'Samsung';
+        marketName = `${detectedName} (Exynos / Snapdragon)`;
+        osLabel = '14.0 (Samsung One UI 6)';
+      } else if (/oneplus/i.test(detectedName)) {
+        manufacturer = 'OnePlus';
+        marketName = `${detectedName} (OxygenOS)`;
+        osLabel = '14.0 (OxygenOS 14)';
+      } else if (/xiaomi|redmi|poco/i.test(detectedName)) {
+        manufacturer = 'Xiaomi';
+        marketName = `${detectedName} (Xiaomi HyperOS)`;
+        osLabel = '14.0 (HyperOS)';
+      }
+
       sendWs(socket, 'DEVICE_INFO_RESPONSE', {
         device: {
-          manufacturer: 'realme',
-          model: 'realme 9 Pro 5G',
-          marketName: 'realme 9 Pro 5G (Snapdragon 695 5G)',
-          androidVersion: '14.0 (Realme UI 5.0)',
+          manufacturer,
+          model: detectedName,
+          marketName,
+          androidVersion: osLabel,
           sdkInt: 34,
           uptimeMs: 14250000,
           totalRamBytes: 8589934592, // 8 GB RAM
