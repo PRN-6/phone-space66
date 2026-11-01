@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import com.phonespace66.companion.core.Constants
+import com.phonespace66.companion.mirror.ScreenMirrorManager
 import com.phonespace66.companion.pairing.PairingManager
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -25,7 +26,8 @@ import java.security.MessageDigest
 class FileServer(
     private val context: Context,
     private val storageManager: AndroidStorageManager,
-    private val pairingManager: PairingManager
+    private val pairingManager: PairingManager,
+    private val screenMirrorManager: ScreenMirrorManager? = null
 ) {
     private val TAG = "FileServer"
     private var serverEngine: CIOApplicationEngine? = null
@@ -166,6 +168,34 @@ class FileServer(
                             }
                         } catch (e: Exception) {
                             call.respond(HttpStatusCode.InternalServerError)
+                        }
+                    }
+
+                    // Screen Mirror Live Frame Stream Endpoint
+                    get("/screen/stream") {
+                        val token = call.request.headers["Authorization"]?.removePrefix("Bearer ")?.trim()
+                            ?: call.request.queryParameters["token"]
+                        if (!pairingManager.validateToken(token)) {
+                            call.respond(HttpStatusCode.Unauthorized, "Authentication required")
+                            return@get
+                        }
+
+                        if (screenMirrorManager == null || !screenMirrorManager.isStreaming.value) {
+                            call.respond(HttpStatusCode.ServiceUnavailable, "Screen mirror is not active")
+                            return@get
+                        }
+
+                        try {
+                            val frameBytes = withContext(Dispatchers.Default) {
+                                screenMirrorManager.getLatestFrame()
+                            }
+                            call.response.header("Cache-Control", "no-cache, no-store, must-revalidate")
+                            call.response.header("Pragma", "no-cache")
+                            call.response.header("X-Frame-Timestamp", System.currentTimeMillis().toString())
+                            call.respondBytes(frameBytes, ContentType.Image.JPEG)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to deliver screen mirror frame", e)
+                            call.respond(HttpStatusCode.InternalServerError, "Frame encoding error")
                         }
                     }
                 }

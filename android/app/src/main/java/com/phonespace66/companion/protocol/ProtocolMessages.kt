@@ -186,6 +186,68 @@ data class AppLaunchResponsePayload(
     val launchedAt: Long = System.currentTimeMillis()
 )
 
+// -------------------------------------------------------------
+// Phase 5: Screen Mirroring & Remote Input Models
+// -------------------------------------------------------------
+
+@Serializable
+data class ScreenMirrorConfig(
+    val maxFps: Int = 60,
+    val bitrateBps: Int = 4000000,
+    val scaleFactor: Float = 1.0f,
+    val quality: String = "high",
+    val codec: String = "mjpeg"
+)
+
+@Serializable
+data class ScreenMirrorStartPayload(
+    val config: ScreenMirrorConfig? = null
+)
+
+@Serializable
+data class ScreenMirrorStopPayload(
+    val reason: String? = null
+)
+
+@Serializable
+data class ScreenMirrorStatusPayload(
+    val isStreaming: Boolean,
+    val width: Int,
+    val height: Int,
+    val fps: Int,
+    val bitrateBps: Int,
+    val rotation: Int = 0,
+    val streamUrl: String? = null,
+    val codec: String = "mjpeg"
+)
+
+@Serializable
+data class RemoteInputMetaKeys(
+    val ctrlKey: Boolean = false,
+    val shiftKey: Boolean = false,
+    val altKey: Boolean = false,
+    val metaKey: Boolean = false
+)
+
+@Serializable
+data class RemoteInputEventPayload(
+    val eventType: String,
+    val x: Float? = null,
+    val y: Float? = null,
+    val navButton: String? = null,
+    val volumeAdjust: String? = null,
+    val text: String? = null,
+    val keyCode: Int? = null,
+    val metaKeys: RemoteInputMetaKeys? = null
+)
+
+@Serializable
+data class RemoteInputResponsePayload(
+    val success: Boolean,
+    val eventType: String,
+    val error: String? = null
+)
+
 @Serializable
 data class HeartbeatPayload(
     val clientTimestamp: Long

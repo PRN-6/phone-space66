@@ -7,5 +7,6 @@
     <string name="btn_reject">Reject</string>
     <string name="status_ready">Ready to connect</string>
     <string name="status_connected">Connected to desktop</string>
+    <string name="accessibility_service_description">PHONE SPACE66 input service for remote mouse, touch gestures, and keyboard input forwarding from your desktop.</string>
 </resources>
 

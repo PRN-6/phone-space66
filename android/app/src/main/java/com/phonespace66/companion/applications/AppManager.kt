@@ -235,3 +235,4 @@ class AppManager(private val context: Context) {
         return Bitmap.createScaledBitmap(bitmap, ICON_SIZE_PX, ICON_SIZE_PX, true)
     }
 }
+

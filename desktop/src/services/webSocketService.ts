@@ -147,6 +147,20 @@ class WebSocketService {
         break;
       }
 
+      case 'SCREEN_MIRROR_STATUS': {
+        import('./screenMirrorService').then(({ screenMirrorService }) => {
+          screenMirrorService.handleScreenMirrorStatus(msg.payload);
+        });
+        break;
+      }
+
+      case 'REMOTE_INPUT_RESPONSE': {
+        import('./screenMirrorService').then(({ screenMirrorService }) => {
+          screenMirrorService.handleRemoteInputResponse(msg.payload);
+        });
+        break;
+      }
+
       case 'HEARTBEAT_ACK': {
         const ack = msg.payload as HeartbeatAckPayload;
         const now = Date.now();

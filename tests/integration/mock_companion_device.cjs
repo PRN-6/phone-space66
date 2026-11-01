@@ -31,6 +31,8 @@ class MockCompanionDevice {
     this.wsServer = null;
     this.httpServer = null;
     this.activeSockets = new Set();
+    this.isScreenStreaming = false;
+    this.screenMetrics = { width: 1080, height: 2400, fps: 60, bitrateBps: 4000000, rotation: 0 };
 
     // In-memory virtual file storage representing Android phone files
     this.virtualFiles = new Map();
@@ -219,7 +221,7 @@ class MockCompanionDevice {
 
         const urlObj = new URL(req.url, `http://127.0.0.1:${this.httpPort}`);
         const authHeader = req.headers['authorization'] || '';
-        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        const token = (authHeader ? authHeader.replace(/^Bearer\s+/i, '').trim() : '') || urlObj.searchParams.get('token') || '';
 
         if (token !== this.activeToken) {
           res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -300,6 +302,37 @@ class MockCompanionDevice {
               })
             );
           });
+          return;
+        }
+
+        // Phase 5: GET /screen/stream
+        if (req.method === 'GET' && urlObj.pathname === '/screen/stream') {
+          const authHeader = req.headers['authorization'] || '';
+          const token = authHeader.replace('Bearer ', '').trim() || urlObj.searchParams.get('token');
+          if (!token || token !== this.activeToken) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Auth token required' }));
+            return;
+          }
+
+          if (!this.isScreenStreaming) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Screen mirror is inactive' }));
+            return;
+          }
+
+          // Sample 1x1 JPEG base64 frame
+          const dummyJpeg = Buffer.from(
+            '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
+            'base64'
+          );
+
+          res.writeHead(200, {
+            'Content-Type': 'image/jpeg',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'X-Frame-Timestamp': Date.now().toString(),
+          });
+          res.end(dummyJpeg);
           return;
         }
 
@@ -726,6 +759,142 @@ class MockCompanionDevice {
               success: true,
               errorMessage: null,
               launchedAt: Date.now(),
+            },
+          });
+          break;
+        }
+
+        // Phase 5: Screen Mirroring & Remote Input
+        case 'SCREEN_MIRROR_START': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          this.isScreenStreaming = true;
+          const cfg = payload?.config || {};
+          const scale = cfg.scaleFactor || 1.0;
+          const w = Math.round(1080 * scale);
+          const h = Math.round(2400 * scale);
+
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'SCREEN_MIRROR_STATUS',
+            timestamp: new Date().toISOString(),
+            payload: {
+              isStreaming: true,
+              width: w,
+              height: h,
+              fps: cfg.maxFps || 60,
+              bitrateBps: cfg.bitrateBps || 4000000,
+              rotation: 0,
+              streamUrl: '/screen/stream',
+              codec: 'mjpeg',
+            },
+          });
+          break;
+        }
+
+        case 'SCREEN_MIRROR_STOP': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          this.isScreenStreaming = false;
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'SCREEN_MIRROR_STATUS',
+            timestamp: new Date().toISOString(),
+            payload: {
+              isStreaming: false,
+              width: 1080,
+              height: 2400,
+              fps: 0,
+              bitrateBps: 0,
+              rotation: 0,
+              streamUrl: null,
+              codec: 'mjpeg',
+            },
+          });
+          break;
+        }
+
+        case 'SCREEN_MIRROR_STATUS': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'SCREEN_MIRROR_STATUS',
+            timestamp: new Date().toISOString(),
+            payload: {
+              isStreaming: this.isScreenStreaming,
+              width: 1080,
+              height: 2400,
+              fps: this.isScreenStreaming ? 60 : 0,
+              bitrateBps: this.isScreenStreaming ? 4000000 : 0,
+              rotation: 0,
+              streamUrl: this.isScreenStreaming ? '/screen/stream' : null,
+              codec: 'mjpeg',
+            },
+          });
+          break;
+        }
+
+        case 'REMOTE_INPUT_EVENT': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          const eventType = payload?.eventType || 'unknown';
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'REMOTE_INPUT_RESPONSE',
+            timestamp: new Date().toISOString(),
+            payload: {
+              success: true,
+              eventType,
+              error: null,
             },
           });
           break;

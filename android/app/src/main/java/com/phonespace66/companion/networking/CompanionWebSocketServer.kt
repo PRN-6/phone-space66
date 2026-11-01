@@ -6,6 +6,8 @@ import android.util.Log
 import com.phonespace66.companion.applications.AppManager
 import com.phonespace66.companion.core.Constants
 import com.phonespace66.companion.device.DeviceTelemetryManager
+import com.phonespace66.companion.input.RemoteInputManager
+import com.phonespace66.companion.mirror.ScreenMirrorManager
 import com.phonespace66.companion.pairing.PairingManager
 import com.phonespace66.companion.protocol.*
 import com.phonespace66.companion.storage.AndroidStorageManager
@@ -32,7 +34,9 @@ class CompanionWebSocketServer(
     private val pairingManager: PairingManager,
     private val telemetryManager: DeviceTelemetryManager,
     private val storageManager: AndroidStorageManager,
-    private val appManager: AppManager
+    private val appManager: AppManager,
+    private val screenMirrorManager: ScreenMirrorManager,
+    private val remoteInputManager: RemoteInputManager
 ) {
     private val TAG = "CompanionServer"
     private var serverEngine: CIOApplicationEngine? = null
@@ -275,6 +279,55 @@ class CompanionWebSocketServer(
                         Log.e(TAG, "Failed to launch app: ${req.packageName}", e)
                         sendError(session, "LAUNCH_ERROR", e.message ?: "Failed to launch app", requestId)
                     }
+                }
+
+                // Phase 5: Screen Mirroring Controls
+                "SCREEN_MIRROR_START" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = try {
+                        json.decodeFromJsonElement<ScreenMirrorStartPayload>(payload)
+                    } catch (_: Exception) {
+                        ScreenMirrorStartPayload()
+                    }
+                    val status = screenMirrorManager.startMirror(req.config)
+                    sendEnvelope(session, "SCREEN_MIRROR_STATUS", json.encodeToJsonElement(status), requestId)
+                }
+
+                "SCREEN_MIRROR_STOP" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = try {
+                        json.decodeFromJsonElement<ScreenMirrorStopPayload>(payload)
+                    } catch (_: Exception) {
+                        ScreenMirrorStopPayload()
+                    }
+                    val status = screenMirrorManager.stopMirror(req.reason)
+                    sendEnvelope(session, "SCREEN_MIRROR_STATUS", json.encodeToJsonElement(status), requestId)
+                }
+
+                "SCREEN_MIRROR_STATUS" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val status = screenMirrorManager.getStatus()
+                    sendEnvelope(session, "SCREEN_MIRROR_STATUS", json.encodeToJsonElement(status), requestId)
+                }
+
+                // Phase 5: Remote Input Event (mouse/touch/keys/navigation)
+                "REMOTE_INPUT_EVENT" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val inputPayload = json.decodeFromJsonElement<RemoteInputEventPayload>(payload)
+                    val result = remoteInputManager.handleInputEvent(inputPayload)
+                    sendEnvelope(session, "REMOTE_INPUT_RESPONSE", json.encodeToJsonElement(result), requestId)
                 }
 
                 else -> {

@@ -47,6 +47,7 @@ export type MessageType =
   | "SCREEN_MIRROR_STOP"
   | "SCREEN_MIRROR_STATUS"
   | "REMOTE_INPUT_EVENT"
+  | "REMOTE_INPUT_RESPONSE"
   // Notifications & Clipboard (Phase 6)
   | "NOTIFICATION_EVENT"
   | "NOTIFICATION_ACTION"
@@ -256,6 +257,72 @@ export interface AppLaunchResponsePayload {
   success: boolean;
   errorMessage?: string;
   launchedAt: number;
+}
+
+// -------------------------------------------------------------
+// Phase 5: Screen Mirroring & Remote Input Models
+// -------------------------------------------------------------
+
+export interface ScreenMirrorConfig {
+  maxFps: number;
+  bitrateBps: number;
+  scaleFactor: number; // e.g. 0.5, 0.75, 1.0
+  quality: 'low' | 'medium' | 'high';
+  codec: 'h264' | 'mjpeg';
+}
+
+export interface ScreenMirrorStartPayload {
+  config?: Partial<ScreenMirrorConfig>;
+}
+
+export interface ScreenMirrorStopPayload {
+  reason?: string;
+}
+
+export interface ScreenMirrorStatusPayload {
+  isStreaming: boolean;
+  width: number;
+  height: number;
+  fps: number;
+  bitrateBps: number;
+  rotation: number; // 0, 90, 180, 270
+  streamUrl?: string;
+  codec: string;
+}
+
+export type RemoteInputEventType =
+  | 'pointer_down'
+  | 'pointer_up'
+  | 'pointer_move'
+  | 'key_down'
+  | 'key_up'
+  | 'text'
+  | 'nav_button'
+  | 'volume_adjust';
+
+export type NavButtonType = 'back' | 'home' | 'recents' | 'power';
+export type VolumeAdjustType = 'up' | 'down' | 'mute';
+
+export interface RemoteInputEventPayload {
+  eventType: RemoteInputEventType;
+  x?: number; // Normalized coordinate 0.0 to 1.0
+  y?: number; // Normalized coordinate 0.0 to 1.0
+  navButton?: NavButtonType;
+  volumeAdjust?: VolumeAdjustType;
+  text?: string;
+  keyCode?: number;
+  metaKeys?: {
+    ctrlKey?: boolean;
+    shiftKey?: boolean;
+    altKey?: boolean;
+    metaKey?: boolean;
+  };
+}
+
+export interface RemoteInputResponsePayload {
+  success: boolean;
+  eventType: RemoteInputEventType;
+  error?: string;
 }
 
 // -------------------------------------------------------------

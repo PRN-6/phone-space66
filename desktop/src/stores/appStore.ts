@@ -104,3 +104,4 @@ export const useAppStore = create<AppStoreState>((set) => ({
   setLaunchStatus: (launchStatus) => set({ launchStatus }),
   setSelectedAppForDetails: (selectedAppForDetails) => set({ selectedAppForDetails }),
 }));
+
