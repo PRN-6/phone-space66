@@ -45,3 +45,4 @@ function detectWiredPhone() {
 }
 
 console.log('Detected Wired USB Devices:', detectWiredPhone());
+

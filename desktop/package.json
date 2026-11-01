@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start:usb": "node ../scripts/usb_mtp_bridge.cjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
