@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">PHONE SPACE66 Companion</string>
+    <string name="service_notification_title">PHONE SPACE66 Companion Active</string>
+    <string name="service_notification_text">Listening for desktop connections on local network</string>
+    <string name="pairing_request_title">PHONE SPACE66 Pairing Request</string>
+    <string name="btn_approve">Approve</string>
+    <string name="btn_reject">Reject</string>
+    <string name="status_ready">Ready to connect</string>
+    <string name="status_connected">Connected to desktop</string>
+</resources>
+

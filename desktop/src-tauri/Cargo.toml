@@ -1,0 +1,31 @@
+[package]
+name = "phonespace66"
+version = "0.1.0"
+description = "PHONE SPACE66 Desktop Application"
+authors = ["PHONE SPACE66 Core Team"]
+license = "MIT"
+edition = "2021"
+
+[lib]
+name = "phonespace66_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0.0", features = ["tray-icon"] }
+tauri-plugin-opener = "2.0.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.37", features = ["full"] }
+tokio-tungstenite = "0.21"
+futures-util = "0.3"
+uuid = { version = "1.8", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
+hex = "0.4"
+reqwest = { version = "0.12", features = ["json", "stream"] }
+mdns-sd = "0.11"
+local-ip-address = "0.6"
+

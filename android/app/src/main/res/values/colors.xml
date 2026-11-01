@@ -1,0 +1,12 @@
+<resources>
+    <color name="charcoal_950">#050505</color>
+    <color name="charcoal_900">#0A0A0A</color>
+    <color name="charcoal_800">#141414</color>
+    <color name="charcoal_700">#242424</color>
+    <color name="accent_silver">#E5E5E5</color>
+    <color name="accent_graphite">#A3A3A3</color>
+    <color name="text_primary">#F5F5F5</color>
+    <color name="text_secondary">#A3A3A3</color>
+    <color name="border_gray">#2C2C2C</color>
+    <color name="error_red">#D32F2F</color>
+</resources>

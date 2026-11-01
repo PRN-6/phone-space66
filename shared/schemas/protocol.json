@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PhoneSpace66ProtocolMessage",
+  "type": "object",
+  "required": ["protocolVersion", "messageId", "type", "timestamp", "payload"],
+  "properties": {
+    "protocolVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "messageId": {
+      "type": "string"
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "DISCOVER_PING",
+        "DISCOVER_PONG",
+        "PAIR_REQUEST",
+        "PAIR_CHALLENGE",
+        "PAIR_VERIFY",
+        "PAIR_SUCCESS",
+        "PAIR_REJECT",
+        "HEARTBEAT",
+        "HEARTBEAT_ACK",
+        "DEVICE_DISCONNECTED",
+        "ERROR_RESPONSE",
+        "DEVICE_INFO_REQUEST",
+        "DEVICE_INFO_RESPONSE",
+        "BATTERY_STATUS_UPDATE",
+        "STORAGE_LIST_REQUEST",
+        "STORAGE_LIST_RESPONSE",
+        "FILE_UPLOAD_REQUEST",
+        "FILE_DOWNLOAD_REQUEST",
+        "FILE_TRANSFER_PROGRESS",
+        "FILE_TRANSFER_COMPLETE",
+        "FILE_TRANSFER_ERROR",
+        "FILE_OPERATION_REQUEST",
+        "FILE_OPERATION_RESPONSE",
+        "APP_LIST_REQUEST",
+        "APP_LIST_RESPONSE",
+        "APP_LAUNCH_REQUEST",
+        "APP_LAUNCH_RESPONSE",
+        "SCREEN_MIRROR_START",
+        "SCREEN_MIRROR_STOP",
+        "SCREEN_MIRROR_STATUS",
+        "REMOTE_INPUT_EVENT",
+        "NOTIFICATION_EVENT",
+        "NOTIFICATION_ACTION",
+        "CLIPBOARD_UPDATE"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "authToken": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "object"
+    }
+  }
+}
+

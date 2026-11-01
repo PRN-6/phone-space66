@@ -1,0 +1,58 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/v2/crates/tauri-cli/schema.json",
+  "productName": "PHONE SPACE66",
+  "version": "0.1.0",
+  "identifier": "com.phonespace66.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "PHONE SPACE66",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 960,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": false,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "headerImage": null,
+        "sidebarImage": null
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libwebkit2gtk-4.1-0", "libappindicator3-1"]
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    }
+  }
+}
+

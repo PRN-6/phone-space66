@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+target/
+.gradle/
+app/build/
+*.apk
+*.aab
+
+# OS & Environment
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.local
