@@ -35,6 +35,60 @@ class MockCompanionDevice {
     // In-memory virtual file storage representing Android phone files
     this.virtualFiles = new Map();
     this.initVirtualStorage();
+
+    // Installed Android applications mock database
+    this.installedApps = [
+      {
+        packageName: 'com.google.android.youtube',
+        appName: 'YouTube',
+        versionName: '19.12.35',
+        versionCode: 1543888320,
+        isSystemApp: false,
+        iconBase64: 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAPklEQVR42u3PMQEAAAgEID+p2Zt4iIeA4KupgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID8FjD0eZk0i+E9AAAAAElFTkSuQmCC',
+        installedAt: Date.now() - 30 * 86400000,
+        lastUpdatedAt: Date.now() - 5 * 86400000,
+      },
+      {
+        packageName: 'com.whatsapp',
+        appName: 'WhatsApp',
+        versionName: '2.24.8.85',
+        versionCode: 240885002,
+        isSystemApp: false,
+        iconBase64: 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAPklEQVR42u3PMQEAAAgEID+p2Zt4iIeA4KupgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID8FjD0eZk0i+E9AAAAAElFTkSuQmCC',
+        installedAt: Date.now() - 60 * 86400000,
+        lastUpdatedAt: Date.now() - 2 * 86400000,
+      },
+      {
+        packageName: 'com.spotify.music',
+        appName: 'Spotify',
+        versionName: '8.9.22.460',
+        versionCode: 104200845,
+        isSystemApp: false,
+        iconBase64: 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAPklEQVR42u3PMQEAAAgEID+p2Zt4iIeA4KupgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID8FjD0eZk0i+E9AAAAAElFTkSuQmCC',
+        installedAt: Date.now() - 45 * 86400000,
+        lastUpdatedAt: Date.now() - 10 * 86400000,
+      },
+      {
+        packageName: 'com.android.chrome',
+        appName: 'Google Chrome',
+        versionName: '123.0.6312.80',
+        versionCode: 631208033,
+        isSystemApp: true,
+        iconBase64: 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAPklEQVR42u3PMQEAAAgEID+p2Zt4iIeA4KupgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID8FjD0eZk0i+E9AAAAAElFTkSuQmCC',
+        installedAt: Date.now() - 100 * 86400000,
+        lastUpdatedAt: Date.now() - 12 * 86400000,
+      },
+      {
+        packageName: 'com.android.settings',
+        appName: 'Settings',
+        versionName: '14',
+        versionCode: 34,
+        isSystemApp: true,
+        iconBase64: 'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAQAAAAAYLlVAAAAPklEQVR42u3PMQEAAAgEID+p2Zt4iIeA4KupgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgID8FjD0eZk0i+E9AAAAAElFTkSuQmCC',
+        installedAt: Date.now() - 200 * 86400000,
+        lastUpdatedAt: Date.now() - 200 * 86400000,
+      },
+    ];
   }
 
   initVirtualStorage() {
@@ -581,6 +635,99 @@ class MockCompanionDevice {
               payload: { action: 'rename', success: true, targetPath, destinationPath },
             });
           }
+          break;
+        }
+
+        // Phase 4: Application Integration
+        case 'APP_LIST_REQUEST': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          const includeSystemApps = !!payload?.includeSystemApps;
+          const filter = (payload?.filter || '').toLowerCase().trim();
+
+          const filtered = this.installedApps.filter((app) => {
+            if (!includeSystemApps && app.isSystemApp) return false;
+            if (filter) {
+              return (
+                app.appName.toLowerCase().includes(filter) ||
+                app.packageName.toLowerCase().includes(filter)
+              );
+            }
+            return true;
+          });
+
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'APP_LIST_RESPONSE',
+            timestamp: new Date().toISOString(),
+            payload: {
+              apps: filtered,
+              totalCount: filtered.length,
+            },
+          });
+          break;
+        }
+
+        case 'APP_LAUNCH_REQUEST': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          const targetPkg = payload?.packageName;
+          const app = this.installedApps.find((a) => a.packageName === targetPkg);
+
+          if (!app) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'APP_LAUNCH_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: {
+                packageName: targetPkg || 'unknown',
+                appName: 'Unknown',
+                success: false,
+                errorMessage: `Package ${targetPkg} not found on Android device.`,
+                launchedAt: Date.now(),
+              },
+            });
+            return;
+          }
+
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'APP_LAUNCH_RESPONSE',
+            timestamp: new Date().toISOString(),
+            payload: {
+              packageName: app.packageName,
+              appName: app.appName,
+              success: true,
+              errorMessage: null,
+              launchedAt: Date.now(),
+            },
+          });
           break;
         }
 

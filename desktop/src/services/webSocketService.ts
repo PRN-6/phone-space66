@@ -100,6 +100,9 @@ class WebSocketService {
         useConnectionStore.getState().setPendingChallenge(null);
         this.startHeartbeat();
         this.requestDeviceInfo();
+        import('./appService').then(({ appService }) => {
+          appService.refreshApps();
+        });
         break;
       }
 
@@ -126,6 +129,20 @@ class WebSocketService {
       case 'FILE_OPERATION_RESPONSE': {
         import('./fileTransferService').then(({ fileTransferService }) => {
           fileTransferService.handleFileOperationResponse(msg.payload);
+        });
+        break;
+      }
+
+      case 'APP_LIST_RESPONSE': {
+        import('./appService').then(({ appService }) => {
+          appService.handleAppListResponse(msg.payload);
+        });
+        break;
+      }
+
+      case 'APP_LAUNCH_RESPONSE': {
+        import('./appService').then(({ appService }) => {
+          appService.handleAppLaunchResponse(msg.payload);
         });
         break;
       }

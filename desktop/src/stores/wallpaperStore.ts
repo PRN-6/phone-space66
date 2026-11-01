@@ -60,3 +60,4 @@ export const useWallpaperStore = create<WallpaperState>((set) => ({
     set({ customWallpaperUrl });
   },
 }));
+

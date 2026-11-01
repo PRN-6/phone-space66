@@ -143,6 +143,49 @@ data class FileOperationResponsePayload(
     val error: String? = null
 )
 
+// -------------------------------------------------------------
+// Phase 4: Application Integration Models
+// -------------------------------------------------------------
+
+@Serializable
+data class AppInfo(
+    val packageName: String,
+    val appName: String,
+    val versionName: String,
+    val versionCode: Long,
+    val isSystemApp: Boolean,
+    val iconBase64: String? = null,
+    val installedAt: Long? = null,
+    val lastUpdatedAt: Long? = null
+)
+
+@Serializable
+data class AppListRequestPayload(
+    val includeSystemApps: Boolean = false,
+    val filter: String? = null
+)
+
+@Serializable
+data class AppListResponsePayload(
+    val apps: List<AppInfo>,
+    val totalCount: Int
+)
+
+@Serializable
+data class AppLaunchRequestPayload(
+    val packageName: String,
+    val activityName: String? = null
+)
+
+@Serializable
+data class AppLaunchResponsePayload(
+    val packageName: String,
+    val appName: String,
+    val success: Boolean,
+    val errorMessage: String? = null,
+    val launchedAt: Long = System.currentTimeMillis()
+)
+
 @Serializable
 data class HeartbeatPayload(
     val clientTimestamp: Long

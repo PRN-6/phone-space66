@@ -3,6 +3,7 @@ package com.phonespace66.companion.networking
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import com.phonespace66.companion.applications.AppManager
 import com.phonespace66.companion.core.Constants
 import com.phonespace66.companion.device.DeviceTelemetryManager
 import com.phonespace66.companion.pairing.PairingManager
@@ -30,7 +31,8 @@ class CompanionWebSocketServer(
     private val context: Context,
     private val pairingManager: PairingManager,
     private val telemetryManager: DeviceTelemetryManager,
-    private val storageManager: AndroidStorageManager
+    private val storageManager: AndroidStorageManager,
+    private val appManager: AppManager
 ) {
     private val TAG = "CompanionServer"
     private var serverEngine: CIOApplicationEngine? = null
@@ -230,6 +232,48 @@ class CompanionWebSocketServer(
                     } catch (e: Exception) {
                         Log.e(TAG, "File operation failed: ${req.action} on ${req.targetPath}", e)
                         sendError(session, "OPERATION_FAILED", e.message ?: "File operation failed", requestId)
+                    }
+                }
+
+                // Phase 4: Installed Applications Listing
+                "APP_LIST_REQUEST" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = try {
+                        json.decodeFromJsonElement<AppListRequestPayload>(payload)
+                    } catch (_: Exception) {
+                        AppListRequestPayload()
+                    }
+                    try {
+                        val appList = appManager.getInstalledApps(
+                            includeSystemApps = req.includeSystemApps,
+                            filter = req.filter
+                        )
+                        sendEnvelope(session, "APP_LIST_RESPONSE", json.encodeToJsonElement(appList), requestId)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to get installed apps", e)
+                        sendError(session, "APP_LIST_ERROR", e.message ?: "Failed to query applications", requestId)
+                    }
+                }
+
+                // Phase 4: Application Launch Request
+                "APP_LAUNCH_REQUEST" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = json.decodeFromJsonElement<AppLaunchRequestPayload>(payload)
+                    try {
+                        val result = appManager.launchApp(
+                            packageName = req.packageName,
+                            activityName = req.activityName
+                        )
+                        sendEnvelope(session, "APP_LAUNCH_RESPONSE", json.encodeToJsonElement(result), requestId)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to launch app: ${req.packageName}", e)
+                        sendError(session, "LAUNCH_ERROR", e.message ?: "Failed to launch app", requestId)
                     }
                 }
 

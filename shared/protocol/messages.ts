@@ -123,7 +123,7 @@ export interface DeviceHardwareInfo {
 }
 
 export interface BatteryInfo {
-  level: number; // 0 - 100
+  level: number;
   isCharging: boolean;
   chargingSource: "AC" | "USB" | "WIRELESS" | "USB_PD" | "NONE";
   temperatureCelsius: number;
@@ -160,7 +160,7 @@ export interface FileItem {
   path: string;
   isDirectory: boolean;
   sizeBytes: number;
-  modifiedAt: number; // Epoch milliseconds
+  modifiedAt: number;
   mimeType: string;
   extension: string;
   isWritable?: boolean;
@@ -185,8 +185,8 @@ export type FileOperationAction = "mkdir" | "rename" | "delete" | "copy" | "move
 export interface FileOperationRequestPayload {
   action: FileOperationAction;
   targetPath: string;
-  destinationPath?: string; // For rename, copy, move
-  newFolderName?: string;   // For mkdir
+  destinationPath?: string;
+  newFolderName?: string;
 }
 
 export interface FileOperationResponsePayload {
@@ -218,6 +218,44 @@ export interface FileTransferProgressPayload {
   status: "active" | "completed" | "cancelled" | "failed";
   sha256?: string;
   error?: string;
+}
+
+// -------------------------------------------------------------
+// Phase 4: Application Integration Models
+// -------------------------------------------------------------
+
+export interface AppInfo {
+  packageName: string;
+  appName: string;
+  versionName: string;
+  versionCode: number;
+  isSystemApp: boolean;
+  iconBase64?: string;
+  installedAt?: number;
+  lastUpdatedAt?: number;
+}
+
+export interface AppListRequestPayload {
+  includeSystemApps?: boolean;
+  filter?: string;
+}
+
+export interface AppListResponsePayload {
+  apps: AppInfo[];
+  totalCount: number;
+}
+
+export interface AppLaunchRequestPayload {
+  packageName: string;
+  activityName?: string;
+}
+
+export interface AppLaunchResponsePayload {
+  packageName: string;
+  appName: string;
+  success: boolean;
+  errorMessage?: string;
+  launchedAt: number;
 }
 
 // -------------------------------------------------------------

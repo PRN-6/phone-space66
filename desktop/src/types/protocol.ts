@@ -167,6 +167,44 @@ export interface FileTransferProgressPayload {
   error?: string;
 }
 
+// -------------------------------------------------------------
+// Phase 4: Application Integration Models
+// -------------------------------------------------------------
+
+export interface AppInfo {
+  packageName: string;
+  appName: string;
+  versionName: string;
+  versionCode: number;
+  isSystemApp: boolean;
+  iconBase64?: string;
+  installedAt?: number;
+  lastUpdatedAt?: number;
+}
+
+export interface AppListRequestPayload {
+  includeSystemApps?: boolean;
+  filter?: string;
+}
+
+export interface AppListResponsePayload {
+  apps: AppInfo[];
+  totalCount: number;
+}
+
+export interface AppLaunchRequestPayload {
+  packageName: string;
+  activityName?: string;
+}
+
+export interface AppLaunchResponsePayload {
+  packageName: string;
+  appName: string;
+  success: boolean;
+  errorMessage?: string;
+  launchedAt: number;
+}
+
 export interface PairRequestPayload {
   desktopName: string;
   desktopId: string;

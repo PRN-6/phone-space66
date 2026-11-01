@@ -1,6 +1,7 @@
 package com.phonespace66.companion
 
 import android.app.Application
+import com.phonespace66.companion.applications.AppManager
 import com.phonespace66.companion.device.DeviceTelemetryManager
 import com.phonespace66.companion.networking.CompanionWebSocketServer
 import com.phonespace66.companion.networking.NsdDiscoveryService
@@ -19,6 +20,9 @@ class PhoneSpaceApp : Application() {
     lateinit var storageManager: AndroidStorageManager
         private set
 
+    lateinit var appManager: AppManager
+        private set
+
     lateinit var discoveryService: NsdDiscoveryService
         private set
 
@@ -35,8 +39,9 @@ class PhoneSpaceApp : Application() {
         pairingManager = PairingManager(this)
         telemetryManager = DeviceTelemetryManager(this)
         storageManager = AndroidStorageManager(this)
+        appManager = AppManager(this)
         discoveryService = NsdDiscoveryService(this)
-        webSocketServer = CompanionWebSocketServer(this, pairingManager, telemetryManager, storageManager)
+        webSocketServer = CompanionWebSocketServer(this, pairingManager, telemetryManager, storageManager, appManager)
         fileServer = FileServer(this, storageManager, pairingManager)
     }
 
