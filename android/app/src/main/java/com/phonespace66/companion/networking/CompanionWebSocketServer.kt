@@ -7,6 +7,7 @@ import com.phonespace66.companion.core.Constants
 import com.phonespace66.companion.device.DeviceTelemetryManager
 import com.phonespace66.companion.pairing.PairingManager
 import com.phonespace66.companion.protocol.*
+import com.phonespace66.companion.storage.AndroidStorageManager
 import io.ktor.server.application.*
 import io.ktor.server.cio.*
 import io.ktor.server.engine.*
@@ -19,7 +20,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import java.time.Duration
@@ -29,7 +29,8 @@ import java.util.UUID
 class CompanionWebSocketServer(
     private val context: Context,
     private val pairingManager: PairingManager,
-    private val telemetryManager: DeviceTelemetryManager
+    private val telemetryManager: DeviceTelemetryManager,
+    private val storageManager: AndroidStorageManager
 ) {
     private val TAG = "CompanionServer"
     private var serverEngine: CIOApplicationEngine? = null
@@ -162,6 +163,76 @@ class CompanionWebSocketServer(
                     sendEnvelope(session, Constants.TYPE_DEVICE_INFO_RESPONSE, json.encodeToJsonElement(telemetry), requestId)
                 }
 
+                // Phase 2: Storage List Request
+                "STORAGE_LIST_REQUEST" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = json.decodeFromJsonElement<StorageListRequestPayload>(payload)
+                    try {
+                        val listing = storageManager.listDirectory(
+                            rawPath = req.path,
+                            sortBy = req.sortBy ?: "name",
+                            sortOrder = req.sortOrder ?: "asc"
+                        )
+                        sendEnvelope(session, "STORAGE_LIST_RESPONSE", json.encodeToJsonElement(listing), requestId)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Storage listing failed for path: ${req.path}", e)
+                        sendError(session, "STORAGE_ERROR", e.message ?: "Failed to list directory", requestId)
+                    }
+                }
+
+                // Phase 2: File Operation Request (mkdir, rename, delete, etc.)
+                "FILE_OPERATION_REQUEST" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = json.decodeFromJsonElement<FileOperationRequestPayload>(payload)
+                    try {
+                        when (req.action) {
+                            "mkdir" -> {
+                                val folderName = req.newFolderName ?: "New Folder"
+                                val created = storageManager.createDirectory(req.targetPath, folderName)
+                                val res = FileOperationResponsePayload(
+                                    action = "mkdir",
+                                    success = true,
+                                    targetPath = req.targetPath,
+                                    destinationPath = created
+                                )
+                                sendEnvelope(session, "FILE_OPERATION_RESPONSE", json.encodeToJsonElement(res), requestId)
+                            }
+                            "rename" -> {
+                                val newName = req.destinationPath ?: req.newFolderName ?: ""
+                                val renamed = storageManager.renameFile(req.targetPath, newName)
+                                val res = FileOperationResponsePayload(
+                                    action = "rename",
+                                    success = true,
+                                    targetPath = req.targetPath,
+                                    destinationPath = renamed
+                                )
+                                sendEnvelope(session, "FILE_OPERATION_RESPONSE", json.encodeToJsonElement(res), requestId)
+                            }
+                            "delete" -> {
+                                val deleted = storageManager.deleteFile(req.targetPath)
+                                val res = FileOperationResponsePayload(
+                                    action = "delete",
+                                    success = deleted,
+                                    targetPath = req.targetPath
+                                )
+                                sendEnvelope(session, "FILE_OPERATION_RESPONSE", json.encodeToJsonElement(res), requestId)
+                            }
+                            else -> {
+                                sendError(session, "UNSUPPORTED_ACTION", "Action not supported: ${req.action}", requestId)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "File operation failed: ${req.action} on ${req.targetPath}", e)
+                        sendError(session, "OPERATION_FAILED", e.message ?: "File operation failed", requestId)
+                    }
+                }
+
                 else -> {
                     Log.w(TAG, "Unhandled message type: $type")
                 }
@@ -200,4 +271,3 @@ class CompanionWebSocketServer(
         sendEnvelope(session, Constants.TYPE_ERROR_RESPONSE, json.encodeToJsonElement(err), requestId)
     }
 }
-

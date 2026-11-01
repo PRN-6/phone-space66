@@ -116,6 +116,20 @@ class WebSocketService {
         break;
       }
 
+      case 'STORAGE_LIST_RESPONSE': {
+        import('./fileTransferService').then(({ fileTransferService }) => {
+          fileTransferService.handleStorageListResponse(msg.payload);
+        });
+        break;
+      }
+
+      case 'FILE_OPERATION_RESPONSE': {
+        import('./fileTransferService').then(({ fileTransferService }) => {
+          fileTransferService.handleFileOperationResponse(msg.payload);
+        });
+        break;
+      }
+
       case 'HEARTBEAT_ACK': {
         const ack = msg.payload as HeartbeatAckPayload;
         const now = Date.now();

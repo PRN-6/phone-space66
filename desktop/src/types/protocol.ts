@@ -17,12 +17,22 @@ export type MessageType =
   | 'DEVICE_INFO_REQUEST'
   | 'DEVICE_INFO_RESPONSE'
   | 'BATTERY_STATUS_UPDATE'
+  // Phase 2
   | 'STORAGE_LIST_REQUEST'
   | 'STORAGE_LIST_RESPONSE'
+  | 'FILE_OPERATION_REQUEST'
+  | 'FILE_OPERATION_RESPONSE'
+  | 'FILE_TRANSFER_INIT'
+  | 'FILE_TRANSFER_PROGRESS'
+  | 'FILE_TRANSFER_COMPLETE'
+  | 'FILE_TRANSFER_CANCEL'
+  | 'FILE_TRANSFER_ERROR'
+  // Phase 4
   | 'APP_LIST_REQUEST'
   | 'APP_LIST_RESPONSE'
   | 'APP_LAUNCH_REQUEST'
   | 'APP_LAUNCH_RESPONSE'
+  // Phase 5
   | 'SCREEN_MIRROR_START'
   | 'SCREEN_MIRROR_STOP'
   | 'SCREEN_MIRROR_STATUS';
@@ -88,6 +98,75 @@ export interface DeviceInfoResponsePayload {
   network: NetworkInfo;
 }
 
+// -------------------------------------------------------------
+// Phase 2: Storage & File Transfer Models
+// -------------------------------------------------------------
+
+export interface FileItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  sizeBytes: number;
+  modifiedAt: number; // Epoch milliseconds
+  mimeType: string;
+  extension: string;
+  isWritable?: boolean;
+  thumbnailUrl?: string;
+}
+
+export interface StorageListRequestPayload {
+  path: string;
+  sortBy?: 'name' | 'size' | 'date' | 'type';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface StorageListResponsePayload {
+  currentPath: string;
+  parentPath: string | null;
+  entries: FileItem[];
+  totalEntries: number;
+}
+
+export type FileOperationAction = 'mkdir' | 'rename' | 'delete' | 'copy' | 'move';
+
+export interface FileOperationRequestPayload {
+  action: FileOperationAction;
+  targetPath: string;
+  destinationPath?: string;
+  newFolderName?: string;
+}
+
+export interface FileOperationResponsePayload {
+  action: FileOperationAction;
+  success: boolean;
+  targetPath: string;
+  destinationPath?: string;
+  error?: string;
+}
+
+export interface FileTransferInitPayload {
+  transferId: string;
+  direction: 'upload' | 'download';
+  fileName: string;
+  filePath: string;
+  fileSizeBytes: number;
+  sha256?: string;
+}
+
+export interface FileTransferProgressPayload {
+  transferId: string;
+  direction: 'upload' | 'download';
+  fileName: string;
+  bytesTransferred: number;
+  totalBytes: number;
+  percentage: number;
+  speedBytesPerSec: number;
+  etaSeconds: number;
+  status: 'active' | 'completed' | 'cancelled' | 'failed';
+  sha256?: string;
+  error?: string;
+}
+
 export interface PairRequestPayload {
   desktopName: string;
   desktopId: string;
@@ -132,4 +211,3 @@ export interface ErrorResponsePayload {
   message: string;
   details?: unknown;
 }
-

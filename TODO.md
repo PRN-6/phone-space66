@@ -21,13 +21,16 @@
 - [x] Build Desktop Status Bar and Device Dashboard to display real phone telemetry
 - [x] Build automated test harness to simulate companion device and verify end-to-end handshake and telemetry
 
-## Phase 2: Android Storage Access & Bidirectional File Manager
-- [ ] Implement Android Storage Access Framework (SAF) & MediaStore providers
-- [ ] Implement directory listing and file metadata streaming
-- [ ] Implement Desktop KDE Dolphin-inspired File Manager window (grid/list view, breadcrumbs)
-- [ ] Implement Chunked HTTP file transfer engine (Port 6656) with SHA-256 checksum verification
-- [ ] Implement bidirectional upload and download with progress tracking and cancellation
-- [ ] Implement transfer history manager window
+## Phase 2: Android Storage Access & Bidirectional File Manager (Completed)
+- [x] Implement Android Storage Access Framework (SAF) & MediaStore providers
+- [x] Implement directory listing and file metadata streaming
+- [x] Implement Desktop KDE Dolphin-inspired File Manager window (grid/list view, breadcrumbs)
+- [x] Implement Chunked HTTP file transfer engine (Port 6656) with SHA-256 checksum verification
+- [x] Implement bidirectional upload and download with progress tracking and cancellation
+- [x] Implement drag-and-drop file upload directly from desktop onto folder canvas
+- [x] Implement file preview modal for images, text, and media
+- [x] Implement transfer history manager window with live speeds and ETAs
+- [x] End-to-end integration tests (7/7 passed 100%)
 
 ## Phase 3: Desktop Environment & Window Management
 - [ ] Custom dark minimalist PHONE SPACE66 wallpaper & customizable wallpaper switcher

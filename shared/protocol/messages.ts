@@ -30,13 +30,13 @@ export type MessageType =
   // Storage & Files (Phase 2)
   | "STORAGE_LIST_REQUEST"
   | "STORAGE_LIST_RESPONSE"
-  | "FILE_UPLOAD_REQUEST"
-  | "FILE_DOWNLOAD_REQUEST"
-  | "FILE_TRANSFER_PROGRESS"
-  | "FILE_TRANSFER_COMPLETE"
-  | "FILE_TRANSFER_ERROR"
   | "FILE_OPERATION_REQUEST"
   | "FILE_OPERATION_RESPONSE"
+  | "FILE_TRANSFER_INIT"
+  | "FILE_TRANSFER_PROGRESS"
+  | "FILE_TRANSFER_COMPLETE"
+  | "FILE_TRANSFER_CANCEL"
+  | "FILE_TRANSFER_ERROR"
   // Applications (Phase 4)
   | "APP_LIST_REQUEST"
   | "APP_LIST_RESPONSE"
@@ -88,7 +88,7 @@ export interface PairChallengePayload {
   phoneModel: string;
   challenge: string;
   pinRequired: boolean;
-  pin?: string; // Only presented on phone screen or for debug pairing
+  pin?: string;
 }
 
 export interface PairVerifyPayload {
@@ -152,6 +152,75 @@ export interface DeviceInfoResponsePayload {
 }
 
 // -------------------------------------------------------------
+// Phase 2: Storage & File Transfer Models
+// -------------------------------------------------------------
+
+export interface FileItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  sizeBytes: number;
+  modifiedAt: number; // Epoch milliseconds
+  mimeType: string;
+  extension: string;
+  isWritable?: boolean;
+  thumbnailUrl?: string;
+}
+
+export interface StorageListRequestPayload {
+  path: string;
+  sortBy?: "name" | "size" | "date" | "type";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface StorageListResponsePayload {
+  currentPath: string;
+  parentPath: string | null;
+  entries: FileItem[];
+  totalEntries: number;
+}
+
+export type FileOperationAction = "mkdir" | "rename" | "delete" | "copy" | "move";
+
+export interface FileOperationRequestPayload {
+  action: FileOperationAction;
+  targetPath: string;
+  destinationPath?: string; // For rename, copy, move
+  newFolderName?: string;   // For mkdir
+}
+
+export interface FileOperationResponsePayload {
+  action: FileOperationAction;
+  success: boolean;
+  targetPath: string;
+  destinationPath?: string;
+  error?: string;
+}
+
+export interface FileTransferInitPayload {
+  transferId: string;
+  direction: "upload" | "download";
+  fileName: string;
+  filePath: string;
+  fileSizeBytes: number;
+  sha256?: string;
+}
+
+export interface FileTransferProgressPayload {
+  transferId: string;
+  direction: "upload" | "download";
+  fileName: string;
+  bytesTransferred: number;
+  totalBytes: number;
+  percentage: number;
+  speedBytesPerSec: number;
+  etaSeconds: number;
+  status: "active" | "completed" | "cancelled" | "failed";
+  sha256?: string;
+  error?: string;
+}
+
+// -------------------------------------------------------------
 // Heartbeat & Errors
 // -------------------------------------------------------------
 
@@ -209,4 +278,3 @@ export function validateMessage(raw: unknown): ProtocolMessage | null {
 
   return raw as ProtocolMessage;
 }
-

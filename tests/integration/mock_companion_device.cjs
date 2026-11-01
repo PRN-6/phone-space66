@@ -1,27 +1,102 @@
 /**
  * PHONE SPACE66 — Mock Android Companion Device
  * Simulates a real Android phone running PHONE SPACE66 Companion.
- * Uses pure Node.js (no external npm dependencies required) to implement RFC 6455 WebSocket & HTTP.
+ * Uses pure Node.js (no external npm dependencies required) to implement:
+ * 1. Port 6655 (Control WebSocket & Discovery)
+ * 2. Port 6656 (High-Speed HTTP Streaming File Transfer with SHA-256 validation)
  */
 
 const http = require('http');
 const crypto = require('crypto');
 
 class MockCompanionDevice {
-  constructor(port = 6655, options = {}) {
-    this.port = port;
-    this.model = options.model || 'Pixel 8 Pro';
-    this.manufacturer = options.manufacturer || 'Google';
-    this.pin = options.pin || '662024';
+  constructor(wsPort = 6655, httpPortOrOptions = 6656, options = {}) {
+    let httpPort = 6656;
+    let opts = options;
+    if (typeof httpPortOrOptions === 'object' && httpPortOrOptions !== null) {
+      opts = httpPortOrOptions;
+      httpPort = (typeof wsPort === 'number' ? wsPort + 1 : 6656);
+    } else if (typeof httpPortOrOptions === 'number') {
+      httpPort = httpPortOrOptions;
+    }
+
+    this.wsPort = wsPort;
+    this.httpPort = httpPort;
+    this.model = opts.model || 'Pixel 8 Pro';
+    this.manufacturer = opts.manufacturer || 'Google';
+    this.pin = opts.pin || '662024';
     this.activeToken = 'pst_' + crypto.randomBytes(24).toString('base64url');
-    this.batteryLevel = options.batteryLevel || 88;
-    this.server = null;
+    this.batteryLevel = opts.batteryLevel || 88;
+
+    this.wsServer = null;
+    this.httpServer = null;
     this.activeSockets = new Set();
+
+    // In-memory virtual file storage representing Android phone files
+    this.virtualFiles = new Map();
+    this.initVirtualStorage();
+  }
+
+  initVirtualStorage() {
+    const root = '/storage/emulated/0';
+    const sampleImageContent = Buffer.from('RIFF....WEBPVP8 ...MOCK_IMAGE_DATA...');
+    const sampleTextContent = Buffer.from('PHONE SPACE66 Master Configuration\nAndroid Companion Active.\nSecurity: Authenticated LAN.');
+
+    this.virtualFiles.set(root, {
+      path: root,
+      name: '0',
+      isDirectory: true,
+      sizeBytes: 0,
+      modifiedAt: Date.now() - 1000000,
+      mimeType: 'inode/directory',
+      extension: '',
+      isWritable: true,
+    });
+
+    const standardDirs = ['DCIM', 'Download', 'Pictures', 'Documents', 'Music', 'Movies'];
+    for (const d of standardDirs) {
+      const p = `${root}/${d}`;
+      this.virtualFiles.set(p, {
+        path: p,
+        name: d,
+        isDirectory: true,
+        sizeBytes: 0,
+        modifiedAt: Date.now() - 500000,
+        mimeType: 'inode/directory',
+        extension: '',
+        isWritable: true,
+      });
+    }
+
+    // Sample files
+    this.addFile(`${root}/Pictures/photo_2026.jpg`, sampleImageContent, 'image/jpeg', 'jpg');
+    this.addFile(`${root}/Documents/notes.txt`, sampleTextContent, 'text/plain', 'txt');
+  }
+
+  addFile(path, buffer, mimeType, extension) {
+    const name = path.split('/').pop();
+    const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+    this.virtualFiles.set(path, {
+      path,
+      name,
+      isDirectory: false,
+      sizeBytes: buffer.length,
+      modifiedAt: Date.now(),
+      mimeType,
+      extension,
+      isWritable: true,
+      buffer,
+      sha256,
+    });
   }
 
   start() {
+    return Promise.all([this.startWsServer(), this.startHttpServer()]);
+  }
+
+  startWsServer() {
     return new Promise((resolve, reject) => {
-      this.server = http.createServer((req, res) => {
+      this.wsServer = http.createServer((req, res) => {
         if (req.url === '/ping') {
           res.writeHead(200, {
             'Content-Type': 'application/json',
@@ -37,12 +112,11 @@ class MockCompanionDevice {
           );
           return;
         }
-
         res.writeHead(404);
         res.end();
       });
 
-      this.server.on('upgrade', (req, socket, head) => {
+      this.wsServer.on('upgrade', (req, socket, head) => {
         if (req.url !== '/ws') {
           socket.destroy();
           return;
@@ -71,11 +145,116 @@ class MockCompanionDevice {
         this.setupWebSocket(socket);
       });
 
-      this.server.listen(this.port, '0.0.0.0', () => {
-        resolve(this.port);
+      this.wsServer.listen(this.wsPort, '0.0.0.0', () => resolve(this.wsPort));
+      this.wsServer.on('error', reject);
+    });
+  }
+
+  startHttpServer() {
+    return new Promise((resolve, reject) => {
+      this.httpServer = http.createServer((req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Headers', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+
+        if (req.method === 'OPTIONS') {
+          res.writeHead(200);
+          res.end();
+          return;
+        }
+
+        const urlObj = new URL(req.url, `http://127.0.0.1:${this.httpPort}`);
+        const authHeader = req.headers['authorization'] || '';
+        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+        if (token !== this.activeToken) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Authentication required' }));
+          return;
+        }
+
+        // GET /download?path=...
+        if (req.method === 'GET' && urlObj.pathname === '/download') {
+          const filePath = urlObj.searchParams.get('path');
+          const file = this.virtualFiles.get(filePath);
+
+          if (!file || file.isDirectory) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'File not found' }));
+            return;
+          }
+
+          res.writeHead(200, {
+            'Content-Type': file.mimeType || 'application/octet-stream',
+            'Content-Length': file.buffer.length,
+            'Content-Disposition': `attachment; filename="${file.name}"`,
+            'X-SHA256-Checksum': file.sha256,
+          });
+
+          // Stream in 64KB chunks to simulate streaming transfer
+          let offset = 0;
+          const chunkSize = 65536;
+          const sendChunk = () => {
+            if (offset < file.buffer.length) {
+              const chunk = file.buffer.subarray(offset, offset + chunkSize);
+              offset += chunk.length;
+              res.write(chunk);
+              setImmediate(sendChunk);
+            } else {
+              res.end();
+            }
+          };
+          sendChunk();
+          return;
+        }
+
+        // POST /upload?destination=...&filename=...
+        if (req.method === 'POST' && urlObj.pathname === '/upload') {
+          const dest = urlObj.searchParams.get('destination') || '/storage/emulated/0';
+          const filename = urlObj.searchParams.get('filename');
+          const expectedSha256 = (req.headers['x-sha256-checksum'] || '').toLowerCase();
+
+          if (!filename) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Missing filename parameter' }));
+            return;
+          }
+
+          const chunks = [];
+          req.on('data', (c) => chunks.push(c));
+          req.on('end', () => {
+            const fileBuffer = Buffer.concat(chunks);
+            const calculatedSha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+            if (expectedSha256 && expectedSha256 !== calculatedSha256) {
+              res.writeHead(422, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Checksum verification mismatch' }));
+              return;
+            }
+
+            const targetPath = `${dest}/${filename}`;
+            const ext = filename.split('.').pop() || '';
+            this.addFile(targetPath, fileBuffer, 'application/octet-stream', ext);
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(
+              JSON.stringify({
+                success: true,
+                path: targetPath,
+                sha256: calculatedSha256,
+                bytes: fileBuffer.length,
+              })
+            );
+          });
+          return;
+        }
+
+        res.writeHead(404);
+        res.end();
       });
 
-      this.server.on('error', reject);
+      this.httpServer.listen(this.httpPort, '0.0.0.0', () => resolve(this.httpPort));
+      this.httpServer.on('error', reject);
     });
   }
 
@@ -122,22 +301,18 @@ class MockCompanionDevice {
         }
 
         if (opcode === 8) {
-          // Close frame
           socket.end();
           break;
         }
 
         if (opcode === 1) {
-          // Text frame
           const text = payload.toString('utf8');
           this.handleMessage(socket, text);
         }
       }
     });
 
-    socket.on('close', () => {
-      this.activeSockets.delete(socket);
-    });
+    socket.on('close', () => this.activeSockets.delete(socket));
   }
 
   sendFrame(socket, dataObj) {
@@ -248,7 +423,6 @@ class MockCompanionDevice {
             return;
           }
 
-          // Return full real device telemetry
           this.sendFrame(socket, {
             protocolVersion: 1,
             messageId: 'msg-' + crypto.randomUUID(),
@@ -263,7 +437,7 @@ class MockCompanionDevice {
                 androidVersion: '14',
                 sdkInt: 34,
                 uptimeMs: 7420100,
-                totalRamBytes: 12884901888, // 12 GB
+                totalRamBytes: 12884901888,
                 availableRamBytes: 6442450944,
               },
               battery: {
@@ -274,7 +448,7 @@ class MockCompanionDevice {
                 health: 'GOOD',
               },
               storage: {
-                totalBytes: 256000000000, // 256 GB
+                totalBytes: 256000000000,
                 availableBytes: 168000000000,
                 usedBytes: 88000000000,
               },
@@ -290,6 +464,126 @@ class MockCompanionDevice {
           break;
         }
 
+        // Phase 2: Directory Listing
+        case 'STORAGE_LIST_REQUEST': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Auth token required' },
+            });
+            return;
+          }
+
+          const targetDir = payload?.path || '/storage/emulated/0';
+          const entries = [];
+
+          for (const [fPath, fObj] of this.virtualFiles.entries()) {
+            if (fPath !== targetDir && fPath.startsWith(targetDir)) {
+              // Direct child check
+              const sub = fPath.substring(targetDir.endsWith('/') ? targetDir.length : targetDir.length + 1);
+              if (!sub.includes('/')) {
+                entries.push({
+                  name: fObj.name,
+                  path: fObj.path,
+                  isDirectory: fObj.isDirectory,
+                  sizeBytes: fObj.sizeBytes,
+                  modifiedAt: fObj.modifiedAt,
+                  mimeType: fObj.mimeType,
+                  extension: fObj.extension,
+                  isWritable: fObj.isWritable,
+                });
+              }
+            }
+          }
+
+          const parent = targetDir === '/storage/emulated/0' ? null : targetDir.substring(0, targetDir.lastIndexOf('/')) || '/storage/emulated/0';
+
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'STORAGE_LIST_RESPONSE',
+            timestamp: new Date().toISOString(),
+            payload: {
+              currentPath: targetDir,
+              parentPath: parent,
+              entries,
+              totalEntries: entries.length,
+            },
+          });
+          break;
+        }
+
+        // Phase 2: File Operations
+        case 'FILE_OPERATION_REQUEST': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Auth token required' },
+            });
+            return;
+          }
+
+          const { action, targetPath, newFolderName, destinationPath } = payload;
+          if (action === 'mkdir') {
+            const newPath = `${targetPath}/${newFolderName || 'New Folder'}`;
+            this.virtualFiles.set(newPath, {
+              path: newPath,
+              name: newFolderName || 'New Folder',
+              isDirectory: true,
+              sizeBytes: 0,
+              modifiedAt: Date.now(),
+              mimeType: 'inode/directory',
+              extension: '',
+              isWritable: true,
+            });
+
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'FILE_OPERATION_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { action: 'mkdir', success: true, targetPath, destinationPath: newPath },
+            });
+          } else if (action === 'delete') {
+            this.virtualFiles.delete(targetPath);
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'FILE_OPERATION_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { action: 'delete', success: true, targetPath },
+            });
+          } else if (action === 'rename') {
+            const file = this.virtualFiles.get(targetPath);
+            if (file) {
+              this.virtualFiles.delete(targetPath);
+              file.name = destinationPath;
+              file.path = targetPath.substring(0, targetPath.lastIndexOf('/') + 1) + destinationPath;
+              this.virtualFiles.set(file.path, file);
+            }
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'FILE_OPERATION_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { action: 'rename', success: true, targetPath, destinationPath },
+            });
+          }
+          break;
+        }
+
         default:
           console.warn('Unhandled message type:', type);
       }
@@ -299,19 +593,19 @@ class MockCompanionDevice {
   }
 
   stop() {
-    return new Promise((resolve) => {
-      for (const socket of this.activeSockets) {
-        socket.destroy();
-      }
-      this.activeSockets.clear();
-      if (this.server) {
-        this.server.close(() => resolve());
-      } else {
-        resolve();
-      }
-    });
+    return Promise.all([
+      new Promise((resolve) => {
+        for (const socket of this.activeSockets) socket.destroy();
+        this.activeSockets.clear();
+        if (this.wsServer) this.wsServer.close(() => resolve());
+        else resolve();
+      }),
+      new Promise((resolve) => {
+        if (this.httpServer) this.httpServer.close(() => resolve());
+        else resolve();
+      }),
+    ]);
   }
 }
 
 module.exports = { MockCompanionDevice };
-

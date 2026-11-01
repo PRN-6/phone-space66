@@ -94,6 +94,55 @@ data class DeviceInfoResponsePayload(
     val network: NetworkInfo
 )
 
+// -------------------------------------------------------------
+// Phase 2: Storage & File Transfer Models
+// -------------------------------------------------------------
+
+@Serializable
+data class FileItem(
+    val name: String,
+    val path: String,
+    val isDirectory: Boolean,
+    val sizeBytes: Long,
+    val modifiedAt: Long,
+    val mimeType: String,
+    val extension: String,
+    val isWritable: Boolean = true,
+    val thumbnailUrl: String? = null
+)
+
+@Serializable
+data class StorageListRequestPayload(
+    val path: String,
+    val sortBy: String? = "name",
+    val sortOrder: String? = "asc"
+)
+
+@Serializable
+data class StorageListResponsePayload(
+    val currentPath: String,
+    val parentPath: String? = null,
+    val entries: List<FileItem>,
+    val totalEntries: Int
+)
+
+@Serializable
+data class FileOperationRequestPayload(
+    val action: String, // mkdir, rename, delete, copy, move
+    val targetPath: String,
+    val destinationPath: String? = null,
+    val newFolderName: String? = null
+)
+
+@Serializable
+data class FileOperationResponsePayload(
+    val action: String,
+    val success: Boolean,
+    val targetPath: String,
+    val destinationPath: String? = null,
+    val error: String? = null
+)
+
 @Serializable
 data class HeartbeatPayload(
     val clientTimestamp: Long
@@ -111,4 +160,3 @@ data class ErrorResponsePayload(
     val message: String,
     val details: String? = null
 )
-

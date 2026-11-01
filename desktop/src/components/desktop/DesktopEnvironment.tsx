@@ -5,6 +5,7 @@ import { Dock } from './Dock';
 import { QuickSettings } from './QuickSettings';
 import { PairingModal } from './PairingModal';
 import { LauncherModal } from '../windows/LauncherModal';
+import { TransferManagerWindow } from '../windows/TransferManagerWindow';
 import { WindowFrame } from '../windows/WindowFrame';
 import { DeviceDashboardWindow } from '../windows/DeviceDashboardWindow';
 import { FileManagerWindow } from '../windows/FileManagerWindow';
@@ -102,6 +103,7 @@ export const DesktopEnvironment: React.FC = () => {
       <QuickSettings />
       <PairingModal />
       <LauncherModal />
+      <TransferManagerWindow />
     </div>
   );
 };
