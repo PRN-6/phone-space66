@@ -273,6 +273,10 @@ class WebSocketService {
     this.telemetryInterval = null;
   }
 
+  isOpen(): boolean {
+    return !!this.ws && this.ws.readyState === WebSocket.OPEN;
+  }
+
   sendMessage<T>(type: MessageType, payload: T, authToken?: string) {
     this.send(type, payload, authToken);
   }

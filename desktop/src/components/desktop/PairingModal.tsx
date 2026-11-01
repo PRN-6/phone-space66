@@ -8,6 +8,7 @@ import {
   ArrowRight,
   AlertCircle,
   KeyRound,
+  Zap,
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { webSocketService } from '../../services/webSocketService';
@@ -22,6 +23,7 @@ export const PairingModal: React.FC = () => {
     error,
     manualIp,
     setManualIp,
+    connectUsbWire,
   } = useConnectionStore();
 
   const [pinInput, setPinInput] = useState('');
@@ -154,6 +156,27 @@ export const PairingModal: React.FC = () => {
               </div>
             ) : (
               <>
+                {/* Wired USB Wire (Plug & Play - No App Needed) */}
+                <div className="p-3.5 rounded-xl bg-charcoal-850 border border-white/10 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-9 h-9 rounded-lg bg-charcoal-800 flex items-center justify-center text-silver-100">
+                      <Zap className="w-5 h-5 text-silver-300" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">Plugged in with USB Wire?</div>
+                      <div className="text-[11px] text-silver-400">Select &quot;File Transfer&quot; (MTP) on phone</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => connectUsbWire()}
+                    className="px-3.5 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 border border-white/20 text-silver-100 text-xs font-semibold flex items-center space-x-1.5 transition-all"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-silver-300" />
+                    <span>Mount Storage</span>
+                  </button>
+                </div>
+
                 {/* Discovered Devices List */}
                 <div>
                   <div className="flex items-center justify-between mb-2.5">

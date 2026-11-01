@@ -11,6 +11,7 @@ import {
   X,
   Smartphone,
   Radio,
+  Zap,
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useDeviceStore } from '../../stores/deviceStore';
@@ -24,7 +25,7 @@ export const TopStatusBar: React.FC = () => {
   const [timeStr, setTimeStr] = useState('');
   const [dateStr, setDateStr] = useState('');
 
-  const { status, latencyMs, setShowPairingModal } = useConnectionStore();
+  const { status, latencyMs, setShowPairingModal, connectionMode, activeDevice } = useConnectionStore();
   const { hardware, battery, network } = useDeviceStore();
   const { toggleQuickSettings, isQuickSettingsOpen, openWindow } = useWindowStore();
   const { unreadCount } = useNotificationStore();
@@ -75,13 +76,21 @@ export const TopStatusBar: React.FC = () => {
         {/* Connected Device Capsule */}
         {isConnected && hardware ? (
           <button
-            onClick={() => openWindow('dashboard')}
+            onClick={() => openWindow('file-manager')}
             className="flex items-center space-x-2 px-2.5 py-0.5 rounded-full bg-charcoal-800 border border-white/10 text-silver-200 hover:bg-charcoal-750 hover:border-white/20 transition-all flex-shrink-0 whitespace-nowrap"
           >
-            <Smartphone className="w-3.5 h-3.5 text-silver-300" />
+            {connectionMode === 'usb' || activeDevice?.ipAddress === 'usb://wire' ? (
+              <Zap className="w-3.5 h-3.5 text-silver-200" />
+            ) : (
+              <Smartphone className="w-3.5 h-3.5 text-silver-300" />
+            )}
             <span className="font-medium text-[11px]">{hardware.model}</span>
-            {latencyMs !== null && (
-              <span className="text-[10px] text-silver-500 font-mono">({latencyMs}ms)</span>
+            {connectionMode === 'usb' || activeDevice?.ipAddress === 'usb://wire' ? (
+              <span className="text-[10px] text-silver-400 font-mono">(USB Wire)</span>
+            ) : (
+              latencyMs !== null && (
+                <span className="text-[10px] text-silver-500 font-mono">({latencyMs}ms)</span>
+              )
             )}
           </button>
         ) : (

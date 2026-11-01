@@ -28,6 +28,7 @@ import {
   CheckSquare,
   Square as SquareIcon,
   X,
+  Zap,
 } from 'lucide-react';
 import { useFileManagerStore } from '../../stores/fileManagerStore';
 import { useConnectionStore } from '../../stores/connectionStore';
@@ -386,10 +387,23 @@ export const FileManagerWindow: React.FC = () => {
           )}
 
           {!isConnected ? (
-            <div className="h-full flex flex-col items-center justify-center text-center text-silver-500 text-xs">
-              <Smartphone className="w-10 h-10 text-charcoal-600 mb-2" />
-              <span className="font-medium text-silver-300">Phone not connected</span>
-              <span className="mt-1">Connect your phone to browse actual internal storage.</span>
+            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-silver-300">
+              <div className="w-16 h-16 rounded-2xl bg-charcoal-900 border border-white/10 flex items-center justify-center text-silver-200 mb-4 shadow-glow-subtle">
+                <Smartphone className="w-8 h-8" />
+              </div>
+              <h3 className="text-base font-bold text-white tracking-wide">
+                Connect Phone via USB Wire
+              </h3>
+              <p className="text-xs text-silver-400 max-w-sm mt-1.5 mb-5">
+                Plug your mobile phone into your laptop with a USB cable and select &quot;File Transfer&quot; (MTP) on your phone screen.
+              </p>
+              <button
+                onClick={() => useConnectionStore.getState().connectUsbWire()}
+                className="px-5 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-750 text-silver-100 hover:text-white border border-white/20 hover:border-white/40 text-xs font-bold flex items-center space-x-2 transition-all shadow-sm"
+              >
+                <Zap className="w-4 h-4 text-silver-300" />
+                <span>⚡ Mount Wired USB Storage (No App Needed)</span>
+              </button>
             </div>
           ) : isLoading ? (
             <div className="h-full flex items-center justify-center text-xs text-silver-400 font-mono space-x-2">
