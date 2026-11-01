@@ -110,6 +110,41 @@ export const DeviceDashboardWindow: React.FC = () => {
           </button>
         </div>
 
+        {/* Zero-Install Web Companion Banner */}
+        <div className="p-3.5 rounded-xl bg-charcoal-900 border border-white/10 flex items-center justify-between">
+          <div className="space-y-0.5">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-silver-300 font-semibold flex items-center space-x-1.5">
+              <Smartphone className="w-3.5 h-3.5 text-silver-400" />
+              <span>Zero-Install Phone Mode (No APK Needed)</span>
+            </span>
+            <p className="text-[11px] text-silver-400">
+              Open in your phone's browser (Chrome/Safari):{' '}
+              <span className="font-mono text-silver-200 underline select-all">
+                http://{window.location.hostname || '10.183.255.53'}:1420/?mobile=1
+              </span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const device: DiscoveredDevice = {
+                id: '127.0.0.1:6655',
+                name: 'Simulated Phone (Localhost)',
+                model: 'Pixel 8 Pro (Simulated)',
+                manufacturer: 'Google',
+                ipAddress: '127.0.0.1',
+                port: 6655,
+                protocolVersion: 1,
+                lastSeen: Date.now(),
+              };
+              webSocketService.connect(device);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 text-silver-200 border border-white/10 text-xs font-mono transition-colors whitespace-nowrap"
+          >
+            Connect Localhost (127.0.0.1)
+          </button>
+        </div>
+
         {/* Direct IP Quick-Connect Bar */}
         <div className="p-3.5 rounded-xl bg-charcoal-900/80 border border-white/5">
           <div className="flex items-center justify-between mb-2">

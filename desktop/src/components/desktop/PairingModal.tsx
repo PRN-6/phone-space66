@@ -205,16 +205,59 @@ export const PairingModal: React.FC = () => {
                   )}
                 </div>
 
-                {/* Manual IP Fallback */}
+                {/* Web Companion (Zero-Install Browser Mode) */}
+                <div className="pt-3 border-t border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-silver-300 font-mono flex items-center space-x-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-silver-400" />
+                      <span>Zero-Install Phone Mode (No APK Needed)</span>
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-charcoal-800 text-silver-300 border border-white/10">
+                      Browser
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-charcoal-950 border border-white/10 text-xs">
+                    <p className="text-silver-400 text-[11px] mb-2">
+                      Open this link on your phone's browser (Chrome/Safari) while on the same Wi-Fi:
+                    </p>
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-charcoal-900 border border-white/5 font-mono text-silver-200 text-xs select-all">
+                      <span>http://{window.location.hostname || '10.183.255.53'}:1420/?mobile=1</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Manual IP Fallback & Simulator Connect */}
                 <div className="pt-2 border-t border-white/10">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-silver-400 font-mono block mb-2">
-                    Or Connect via IP Address (Hotspot / Manual)
-                  </span>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-silver-400 font-mono">
+                      Or Connect via IP Address
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualIp('127.0.0.1:6655');
+                        const device: DiscoveredDevice = {
+                          id: '127.0.0.1:6655',
+                          name: 'Simulated Phone (Localhost)',
+                          model: 'Pixel 8 Pro (Simulated)',
+                          manufacturer: 'Google',
+                          ipAddress: '127.0.0.1',
+                          port: 6655,
+                          protocolVersion: 1,
+                          lastSeen: Date.now(),
+                        };
+                        handleConnect(device);
+                      }}
+                      className="text-[11px] font-mono text-silver-400 hover:text-white underline"
+                    >
+                      Use Local Simulator (127.0.0.1)
+                    </button>
+                  </div>
 
                   <form onSubmit={handleManualConnect} className="flex space-x-2">
                     <input
                       type="text"
-                      placeholder="e.g. 192.168.43.1 or 192.168.1.145"
+                      placeholder="e.g. 192.168.43.1 or 10.183.255.xxx"
                       value={manualIp}
                       onChange={(e) => setManualIp(e.target.value)}
                       className="flex-1 px-3 py-2 bg-charcoal-950 border border-white/10 rounded-xl text-xs text-silver-100 placeholder-silver-500 focus:outline-none focus:border-white/30"
