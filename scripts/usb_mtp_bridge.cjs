@@ -552,15 +552,40 @@ function handleClientMessage(socket, msg) {
           totalEntries: (result.entries || []).length,
         });
       } else {
+        const isLocked = result.status === 'LOCKED_OR_CHARGING_ONLY';
         sendWs(socket, 'STORAGE_LIST_RESPONSE', {
           currentPath: targetPath,
           parentPath: null,
           entries: [
             {
-              name: result.status === 'LOCKED_OR_CHARGING_ONLY'
-                ? '⚠️ UNLOCK PHONE SCREEN & SELECT "FILE TRANSFER"'
-                : 'Searching for realme 9 Pro 5G...',
-              path: targetPath,
+              name: isLocked
+                ? '⚠️ STEP 1: Unlock Phone Screen with PIN or Fingerprint'
+                : '⚠️ STEP 1: Connect your phone to laptop with USB cable',
+              path: targetPath + '/step1',
+              isDirectory: false,
+              sizeBytes: 0,
+              modifiedAt: Date.now(),
+              mimeType: 'text/plain',
+              extension: 'txt',
+              isWritable: false,
+            },
+            {
+              name: isLocked
+                ? '⚠️ STEP 2: Pull down notification bar on phone'
+                : '⚠️ STEP 2: Unlock phone screen',
+              path: targetPath + '/step2',
+              isDirectory: false,
+              sizeBytes: 0,
+              modifiedAt: Date.now(),
+              mimeType: 'text/plain',
+              extension: 'txt',
+              isWritable: false,
+            },
+            {
+              name: isLocked
+                ? '⚠️ STEP 3: Tap "Charging via USB" and choose "File Transfer / Android Auto"'
+                : '⚠️ STEP 3: Select "File Transfer / MTP" in USB notification',
+              path: targetPath + '/step3',
               isDirectory: false,
               sizeBytes: 0,
               modifiedAt: Date.now(),
@@ -569,7 +594,7 @@ function handleClientMessage(socket, msg) {
               isWritable: false,
             },
           ],
-          totalEntries: 1,
+          totalEntries: 3,
         });
       }
       break;

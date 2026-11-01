@@ -26,3 +26,4 @@ Write-Host "SUCCESS! Windows Executables Created:" -ForegroundColor Green
 Get-Item "$root\PHONE SPACE66.exe", "$root\PHONE SPACE66 Setup.exe" | Format-Table Name, Length, LastWriteTime
 Write-Host "You can now double-click 'PHONE SPACE66.exe' to launch the app!" -ForegroundColor Yellow
 Write-Host "================================================================" -ForegroundColor Cyan
+

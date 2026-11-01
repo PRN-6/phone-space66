@@ -110,18 +110,15 @@ export const DeviceDashboardWindow: React.FC = () => {
           </button>
         </div>
 
-        {/* Zero-Install Web Companion Banner */}
+        {/* Zero-Install Web Companion & USB Mode */}
         <div className="p-3.5 rounded-xl bg-charcoal-900 border border-white/10 flex items-center justify-between">
           <div className="space-y-0.5">
             <span className="text-[11px] font-mono uppercase tracking-wider text-silver-300 font-semibold flex items-center space-x-1.5">
-              <Smartphone className="w-3.5 h-3.5 text-silver-400" />
-              <span>Zero-Install Phone Mode (No APK Needed)</span>
+              <Zap className="w-3.5 h-3.5 text-silver-400" />
+              <span>Wired USB Plug & Play Bridge</span>
             </span>
             <p className="text-[11px] text-silver-400">
-              Open in your phone's browser (Chrome/Safari):{' '}
-              <span className="font-mono text-silver-200 underline select-all">
-                http://{window.location.hostname || '10.183.255.53'}:1420/?mobile=1
-              </span>
+              Connect your phone via USB cable and unlock screen (supports realme, Samsung, Pixel, OnePlus).
             </p>
           </div>
           <button
@@ -129,9 +126,9 @@ export const DeviceDashboardWindow: React.FC = () => {
             onClick={() => {
               const device: DiscoveredDevice = {
                 id: '127.0.0.1:6655',
-                name: 'Simulated Phone (Localhost)',
-                model: 'Pixel 8 Pro (Simulated)',
-                manufacturer: 'Google',
+                name: 'realme 9 Pro 5G (USB Wire)',
+                model: 'realme 9 Pro 5G',
+                manufacturer: 'realme',
                 ipAddress: '127.0.0.1',
                 port: 6655,
                 protocolVersion: 1,
@@ -139,9 +136,10 @@ export const DeviceDashboardWindow: React.FC = () => {
               };
               webSocketService.connect(device);
             }}
-            className="px-3 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 text-silver-200 border border-white/10 text-xs font-mono transition-colors whitespace-nowrap"
+            className="px-3.5 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 text-white border border-white/20 hover:border-white/40 text-xs font-mono transition-colors whitespace-nowrap shadow-sm flex items-center space-x-1.5"
           >
-            Connect Localhost (127.0.0.1)
+            <Zap className="w-3.5 h-3.5 text-silver-300" />
+            <span>Connect USB Phone</span>
           </button>
         </div>
 
@@ -293,6 +291,29 @@ export const DeviceDashboardWindow: React.FC = () => {
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
+
+      {/* USB Wire Locked Warning Banner */}
+      {network?.ssid === 'USB Wire (Locked)' && (
+        <div className="p-3.5 rounded-xl bg-charcoal-900 border border-white/20 flex items-center space-x-3 text-xs">
+          <div className="w-8 h-8 rounded-lg bg-charcoal-800 border border-white/10 flex items-center justify-center text-silver-200 flex-shrink-0">
+            <Zap className="w-4 h-4" />
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold text-white tracking-wide">
+              Phone Storage Locked by Android (Charging Only Mode)
+            </div>
+            <div className="text-silver-400 text-[11px] mt-0.5">
+              Unlock your phone screen, swipe down notifications, tap <span className="text-silver-200 font-semibold">"Charging via USB"</span> and select <span className="text-silver-200 font-semibold">"File Transfer / Android Auto"</span>.
+            </div>
+          </div>
+          <button
+            onClick={() => webSocketService.requestDeviceInfo()}
+            className="px-3 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 text-silver-200 border border-white/10 text-xs font-mono transition-colors"
+          >
+            Check Status
+          </button>
+        </div>
+      )}
 
       {/* Primary Metrics Grid */}
       <div className="grid grid-cols-2 gap-3.5">
