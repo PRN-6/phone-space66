@@ -77,3 +77,4 @@ export const useScreenMirrorStore = create<ScreenMirrorState>((set) => ({
       streamUrl: null,
     }),
 }));
+

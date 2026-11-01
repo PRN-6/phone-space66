@@ -248,6 +248,91 @@ data class RemoteInputResponsePayload(
     val error: String? = null
 )
 
+// -------------------------------------------------------------
+// Phase 6: Notifications, Clipboard, Media & Gallery Models
+// -------------------------------------------------------------
+
+@Serializable
+data class PhoneNotification(
+    val id: String,
+    val packageName: String,
+    val appName: String,
+    val title: String,
+    val text: String,
+    val postTime: Long,
+    val isClearable: Boolean = true,
+    val iconBase64: String? = null
+)
+
+@Serializable
+data class NotificationDismissPayload(
+    val notificationId: String
+)
+
+@Serializable
+data class NotificationListResponsePayload(
+    val notifications: List<PhoneNotification>,
+    val totalCount: Int
+)
+
+@Serializable
+data class ClipboardPayload(
+    val text: String,
+    val timestamp: Long,
+    val source: String = "phone"
+)
+
+@Serializable
+data class MediaPlaybackStatePayload(
+    val hasActiveSession: Boolean,
+    val packageName: String? = null,
+    val appName: String? = null,
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    val isPlaying: Boolean = false,
+    val durationMs: Long = 0L,
+    val positionMs: Long = 0L,
+    val albumArtUrl: String? = null,
+    val canSkipNext: Boolean = true,
+    val canSkipPrev: Boolean = true
+)
+
+@Serializable
+data class MediaControlActionPayload(
+    val action: String,
+    val positionMs: Long? = null
+)
+
+@Serializable
+data class GalleryItem(
+    val id: String,
+    val path: String,
+    val name: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val modifiedAt: Long,
+    val width: Int? = null,
+    val height: Int? = null,
+    val durationMs: Long? = null,
+    val thumbnailUrl: String,
+    val downloadUrl: String
+)
+
+@Serializable
+data class GalleryListRequestPayload(
+    val category: String? = "all",
+    val limit: Int? = 50,
+    val offset: Int? = 0
+)
+
+@Serializable
+data class GalleryListResponsePayload(
+    val items: List<GalleryItem>,
+    val totalCount: Int,
+    val category: String
+)
+
 @Serializable
 data class HeartbeatPayload(
     val clientTimestamp: Long

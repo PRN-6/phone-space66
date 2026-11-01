@@ -4,10 +4,14 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.phonespace66.companion.applications.AppManager
+import com.phonespace66.companion.clipboard.ClipboardSyncManager
 import com.phonespace66.companion.core.Constants
 import com.phonespace66.companion.device.DeviceTelemetryManager
+import com.phonespace66.companion.gallery.GalleryManager
 import com.phonespace66.companion.input.RemoteInputManager
+import com.phonespace66.companion.media.MediaControlManager
 import com.phonespace66.companion.mirror.ScreenMirrorManager
+import com.phonespace66.companion.notifications.PhoneSpaceNotificationListenerService
 import com.phonespace66.companion.pairing.PairingManager
 import com.phonespace66.companion.protocol.*
 import com.phonespace66.companion.storage.AndroidStorageManager
@@ -23,10 +27,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import java.time.Duration
 import java.time.Instant
+import java.util.Collections
 import java.util.UUID
 
 class CompanionWebSocketServer(
@@ -36,18 +42,35 @@ class CompanionWebSocketServer(
     private val storageManager: AndroidStorageManager,
     private val appManager: AppManager,
     private val screenMirrorManager: ScreenMirrorManager,
-    private val remoteInputManager: RemoteInputManager
+    private val remoteInputManager: RemoteInputManager,
+    private val clipboardSyncManager: ClipboardSyncManager,
+    private val mediaControlManager: MediaControlManager,
+    private val galleryManager: GalleryManager
 ) {
     private val TAG = "CompanionServer"
     private var serverEngine: CIOApplicationEngine? = null
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val serverScope = CoroutineScope(Dispatchers.IO + Job())
+    private val activeSessions = Collections.synchronizedSet(mutableSetOf<DefaultWebSocketSession>())
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected = _isConnected.asStateFlow()
 
     private val _connectedDesktopName = MutableStateFlow<String?>(null)
     val connectedDesktopName = _connectedDesktopName.asStateFlow()
+
+    init {
+        // Wire notification forwarders to broadcast over WebSocket
+        PhoneSpaceNotificationListenerService.onNotificationPostedListener = { notif ->
+            broadcast("NOTIFICATION_POSTED", json.encodeToJsonElement(notif))
+        }
+        PhoneSpaceNotificationListenerService.onNotificationRemovedListener = { key ->
+            broadcast("NOTIFICATION_REMOVED", buildJsonObject { put("notificationId", key) })
+        }
+        clipboardSyncManager.onClipboardChangedListener = { clip ->
+            broadcast("CLIPBOARD_SYNC", json.encodeToJsonElement(clip))
+        }
+    }
 
     fun start(port: Int = Constants.DEFAULT_WS_PORT) {
         if (serverEngine != null) return
@@ -65,6 +88,7 @@ class CompanionWebSocketServer(
                     webSocket("/ws") {
                         Log.i(TAG, "Client connected via WebSocket")
                         _isConnected.value = true
+                        activeSessions.add(this)
 
                         try {
                             incoming.consumeEach { frame ->
@@ -77,6 +101,7 @@ class CompanionWebSocketServer(
                             Log.e(TAG, "WebSocket session error", e)
                         } finally {
                             Log.i(TAG, "Client disconnected")
+                            activeSessions.remove(this)
                             _isConnected.value = false
                             _connectedDesktopName.value = null
                         }
@@ -330,6 +355,84 @@ class CompanionWebSocketServer(
                     sendEnvelope(session, "REMOTE_INPUT_RESPONSE", json.encodeToJsonElement(result), requestId)
                 }
 
+                // Phase 6: Notifications
+                "NOTIFICATION_LIST_REQUEST" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val activeList = PhoneSpaceNotificationListenerService.instance?.getActiveNotificationsList() ?: emptyList()
+                    val res = NotificationListResponsePayload(
+                        notifications = activeList,
+                        totalCount = activeList.size
+                    )
+                    sendEnvelope(session, "NOTIFICATION_LIST_RESPONSE", json.encodeToJsonElement(res), requestId)
+                }
+
+                "NOTIFICATION_DISMISS_REQUEST" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = json.decodeFromJsonElement<NotificationDismissPayload>(payload)
+                    PhoneSpaceNotificationListenerService.instance?.dismissNotification(req.notificationId)
+                }
+
+                // Phase 6: Clipboard Synchronization
+                "CLIPBOARD_SYNC" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = json.decodeFromJsonElement<ClipboardPayload>(payload)
+                    clipboardSyncManager.setRemoteText(req.text)
+                }
+
+                // Phase 6: Media Control
+                "MEDIA_PLAYBACK_STATE" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val state = mediaControlManager.getCurrentPlaybackState()
+                    sendEnvelope(session, "MEDIA_PLAYBACK_STATE", json.encodeToJsonElement(state), requestId)
+                }
+
+                "MEDIA_CONTROL_ACTION" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = json.decodeFromJsonElement<MediaControlActionPayload>(payload)
+                    mediaControlManager.handleAction(req)
+                    val updated = mediaControlManager.getCurrentPlaybackState()
+                    sendEnvelope(session, "MEDIA_PLAYBACK_STATE", json.encodeToJsonElement(updated), requestId)
+                }
+
+                // Phase 6: Media Gallery
+                "GALLERY_LIST_REQUEST" -> {
+                    if (!pairingManager.validateToken(authToken)) {
+                        sendError(session, "AUTH_REQUIRED", "Valid pairing token required", requestId)
+                        return
+                    }
+                    val req = try {
+                        json.decodeFromJsonElement<GalleryListRequestPayload>(payload)
+                    } catch (_: Exception) {
+                        GalleryListRequestPayload()
+                    }
+                    try {
+                        val gallery = galleryManager.getGalleryItems(
+                            category = req.category,
+                            limit = req.limit ?: 50,
+                            offset = req.offset ?: 0
+                        )
+                        sendEnvelope(session, "GALLERY_LIST_RESPONSE", json.encodeToJsonElement(gallery), requestId)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to query gallery items", e)
+                        sendError(session, "GALLERY_ERROR", e.message ?: "Failed to list media items", requestId)
+                    }
+                }
+
                 else -> {
                     Log.w(TAG, "Unhandled message type: $type")
                 }
@@ -366,5 +469,18 @@ class CompanionWebSocketServer(
     ) {
         val err = ErrorResponsePayload(code = code, message = message)
         sendEnvelope(session, Constants.TYPE_ERROR_RESPONSE, json.encodeToJsonElement(err), requestId)
+    }
+
+    private fun broadcast(type: String, payloadElement: JsonElement) {
+        serverScope.launch {
+            val sessionsCopy = synchronized(activeSessions) { activeSessions.toList() }
+            for (sess in sessionsCopy) {
+                try {
+                    sendEnvelope(sess, type, payloadElement)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to broadcast to session", e)
+                }
+            }
+        }
     }
 }

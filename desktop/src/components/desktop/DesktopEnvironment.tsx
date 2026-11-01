@@ -14,6 +14,7 @@ import { DeviceDashboardWindow } from '../windows/DeviceDashboardWindow';
 import { FileManagerWindow } from '../windows/FileManagerWindow';
 import { ScreenMirrorWindow } from '../windows/ScreenMirrorWindow';
 import { SettingsWindow } from '../windows/SettingsWindow';
+import { GalleryWindow } from '../windows/GalleryWindow';
 import { useWindowStore } from '../../stores/windowStore';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { discoveryService } from '../../services/discoveryService';
@@ -126,7 +127,7 @@ export const DesktopEnvironment: React.FC = () => {
       case 'settings':
         return <SettingsWindow />;
       case 'gallery':
-        return <FileManagerWindow />;
+        return <GalleryWindow />;
       default:
         return <DeviceDashboardWindow />;
     }

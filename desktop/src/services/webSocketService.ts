@@ -103,6 +103,12 @@ class WebSocketService {
         import('./appService').then(({ appService }) => {
           appService.refreshApps();
         });
+        import('./notificationService').then(({ notificationService }) => {
+          notificationService.refreshNotifications();
+        });
+        import('./mediaService').then(({ mediaService }) => {
+          mediaService.refreshPlaybackState();
+        });
         break;
       }
 
@@ -157,6 +163,49 @@ class WebSocketService {
       case 'REMOTE_INPUT_RESPONSE': {
         import('./screenMirrorService').then(({ screenMirrorService }) => {
           screenMirrorService.handleRemoteInputResponse(msg.payload);
+        });
+        break;
+      }
+
+      // Phase 6
+      case 'NOTIFICATION_LIST_RESPONSE': {
+        import('./notificationService').then(({ notificationService }) => {
+          notificationService.handleNotificationListResponse(msg.payload);
+        });
+        break;
+      }
+
+      case 'NOTIFICATION_POSTED': {
+        import('./notificationService').then(({ notificationService }) => {
+          notificationService.handleNotificationPosted(msg.payload);
+        });
+        break;
+      }
+
+      case 'NOTIFICATION_REMOVED': {
+        import('./notificationService').then(({ notificationService }) => {
+          notificationService.handleNotificationRemoved(msg.payload?.notificationId);
+        });
+        break;
+      }
+
+      case 'CLIPBOARD_SYNC': {
+        import('./clipboardService').then(({ clipboardService }) => {
+          clipboardService.handleClipboardSync(msg.payload);
+        });
+        break;
+      }
+
+      case 'MEDIA_PLAYBACK_STATE': {
+        import('./mediaService').then(({ mediaService }) => {
+          mediaService.handlePlaybackState(msg.payload);
+        });
+        break;
+      }
+
+      case 'GALLERY_LIST_RESPONSE': {
+        import('./galleryService').then(({ galleryService }) => {
+          galleryService.handleGalleryListResponse(msg.payload);
         });
         break;
       }

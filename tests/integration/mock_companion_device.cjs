@@ -34,6 +34,43 @@ class MockCompanionDevice {
     this.isScreenStreaming = false;
     this.screenMetrics = { width: 1080, height: 2400, fps: 60, bitrateBps: 4000000, rotation: 0 };
 
+    this.mockNotifications = [
+      {
+        id: 'notif-wa-01',
+        packageName: 'com.whatsapp',
+        appName: 'WhatsApp',
+        title: 'Sarah Jenkins',
+        text: 'Sent the prototype mockups over email.',
+        postTime: Date.now() - 180000,
+        isClearable: true,
+      },
+      {
+        id: 'notif-cal-02',
+        packageName: 'com.google.android.calendar',
+        appName: 'Calendar',
+        title: 'Project PHONE SPACE66 Architecture Review',
+        text: 'In 30 minutes (Virtual Meet)',
+        postTime: Date.now() - 600000,
+        isClearable: true,
+      },
+    ];
+
+    this.clipboardText = 'Initial phone clipboard text';
+    this.mediaPlaybackState = {
+      hasActiveSession: true,
+      packageName: 'com.spotify.music',
+      appName: 'Spotify',
+      title: 'Midnight City',
+      artist: 'M83',
+      album: "Hurry Up, We're Dreaming",
+      isPlaying: true,
+      durationMs: 243000,
+      positionMs: 82000,
+      albumArtUrl: null,
+      canSkipNext: true,
+      canSkipPrev: true,
+    };
+
     // In-memory virtual file storage representing Android phone files
     this.virtualFiles = new Map();
     this.initVirtualStorage();
@@ -126,6 +163,9 @@ class MockCompanionDevice {
 
     // Sample files
     this.addFile(`${root}/Pictures/photo_2026.jpg`, sampleImageContent, 'image/jpeg', 'jpg');
+    this.addFile(`${root}/Pictures/screenshot_2026.png`, sampleImageContent, 'image/png', 'png');
+    this.addFile(`${root}/DCIM/IMG_20261101_001.jpg`, sampleImageContent, 'image/jpeg', 'jpg');
+    this.addFile(`${root}/Movies/screen_record_01.mp4`, sampleImageContent, 'video/mp4', 'mp4');
     this.addFile(`${root}/Documents/notes.txt`, sampleTextContent, 'text/plain', 'txt');
   }
 
@@ -895,6 +935,198 @@ class MockCompanionDevice {
               success: true,
               eventType,
               error: null,
+            },
+          });
+          break;
+        }
+
+        // Phase 6: Notifications, Clipboard, Media, Gallery
+        case 'NOTIFICATION_LIST_REQUEST': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'NOTIFICATION_LIST_RESPONSE',
+            timestamp: new Date().toISOString(),
+            payload: {
+              notifications: this.mockNotifications,
+              totalCount: this.mockNotifications.length,
+            },
+          });
+          break;
+        }
+
+        case 'NOTIFICATION_DISMISS_REQUEST': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          const notifId = payload?.notificationId;
+          this.mockNotifications = this.mockNotifications.filter((n) => n.id !== notifId);
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            type: 'NOTIFICATION_REMOVED',
+            timestamp: new Date().toISOString(),
+            payload: { notificationId: notifId },
+          });
+          break;
+        }
+
+        case 'CLIPBOARD_SYNC': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          this.clipboardText = payload?.text || '';
+          // Echo back or confirm
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'CLIPBOARD_SYNC',
+            timestamp: new Date().toISOString(),
+            payload: {
+              text: this.clipboardText,
+              timestamp: Date.now(),
+              source: 'phone',
+            },
+          });
+          break;
+        }
+
+        case 'MEDIA_PLAYBACK_STATE': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'MEDIA_PLAYBACK_STATE',
+            timestamp: new Date().toISOString(),
+            payload: this.mediaPlaybackState,
+          });
+          break;
+        }
+
+        case 'MEDIA_CONTROL_ACTION': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          const action = (payload?.action || '').toLowerCase();
+          if (action === 'play') this.mediaPlaybackState.isPlaying = true;
+          else if (action === 'pause') this.mediaPlaybackState.isPlaying = false;
+          else if (action === 'toggle') this.mediaPlaybackState.isPlaying = !this.mediaPlaybackState.isPlaying;
+
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'MEDIA_PLAYBACK_STATE',
+            timestamp: new Date().toISOString(),
+            payload: this.mediaPlaybackState,
+          });
+          break;
+        }
+
+        case 'GALLERY_LIST_REQUEST': {
+          if (!authToken || authToken !== this.activeToken) {
+            this.sendFrame(socket, {
+              protocolVersion: 1,
+              messageId: 'msg-' + crypto.randomUUID(),
+              requestId,
+              type: 'ERROR_RESPONSE',
+              timestamp: new Date().toISOString(),
+              payload: { code: 'AUTH_REQUIRED', message: 'Valid pairing token required' },
+            });
+            return;
+          }
+
+          const cat = (payload?.category || 'all').toLowerCase();
+          const galleryItems = [];
+
+          for (const [path, file] of this.virtualFiles.entries()) {
+            if (file.isDirectory) continue;
+            const ext = (file.extension || '').toLowerCase();
+            const isImg = ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+            const isVid = ['mp4', 'mkv'].includes(ext);
+
+            if (!isImg && !isVid) continue;
+
+            if (cat === 'camera' && !path.includes('/DCIM')) continue;
+            if (cat === 'screenshots' && !path.toLowerCase().includes('screenshot')) continue;
+            if (cat === 'videos' && !isVid) continue;
+
+            galleryItems.push({
+              id: 'media-' + file.name,
+              path: file.path,
+              name: file.name,
+              mimeType: file.mimeType,
+              sizeBytes: file.sizeBytes,
+              modifiedAt: file.modifiedAt,
+              durationMs: isVid ? 60000 : null,
+              thumbnailUrl: `/thumbnail?path=${encodeURIComponent(file.path)}`,
+              downloadUrl: `/download?path=${encodeURIComponent(file.path)}`,
+            });
+          }
+
+          this.sendFrame(socket, {
+            protocolVersion: 1,
+            messageId: 'msg-' + crypto.randomUUID(),
+            requestId,
+            type: 'GALLERY_LIST_RESPONSE',
+            timestamp: new Date().toISOString(),
+            payload: {
+              items: galleryItems,
+              totalCount: galleryItems.length,
+              category: cat,
             },
           });
           break;

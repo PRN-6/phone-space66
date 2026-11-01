@@ -2,8 +2,11 @@ package com.phonespace66.companion
 
 import android.app.Application
 import com.phonespace66.companion.applications.AppManager
+import com.phonespace66.companion.clipboard.ClipboardSyncManager
 import com.phonespace66.companion.device.DeviceTelemetryManager
+import com.phonespace66.companion.gallery.GalleryManager
 import com.phonespace66.companion.input.RemoteInputManager
+import com.phonespace66.companion.media.MediaControlManager
 import com.phonespace66.companion.mirror.ScreenMirrorManager
 import com.phonespace66.companion.networking.CompanionWebSocketServer
 import com.phonespace66.companion.networking.NsdDiscoveryService
@@ -31,6 +34,15 @@ class PhoneSpaceApp : Application() {
     lateinit var remoteInputManager: RemoteInputManager
         private set
 
+    lateinit var clipboardSyncManager: ClipboardSyncManager
+        private set
+
+    lateinit var mediaControlManager: MediaControlManager
+        private set
+
+    lateinit var galleryManager: GalleryManager
+        private set
+
     lateinit var discoveryService: NsdDiscoveryService
         private set
 
@@ -50,6 +62,9 @@ class PhoneSpaceApp : Application() {
         appManager = AppManager(this)
         screenMirrorManager = ScreenMirrorManager(this)
         remoteInputManager = RemoteInputManager(this)
+        clipboardSyncManager = ClipboardSyncManager(this)
+        mediaControlManager = MediaControlManager(this)
+        galleryManager = GalleryManager(this, storageManager)
         discoveryService = NsdDiscoveryService(this)
         webSocketServer = CompanionWebSocketServer(
             this,
@@ -58,19 +73,24 @@ class PhoneSpaceApp : Application() {
             storageManager,
             appManager,
             screenMirrorManager,
-            remoteInputManager
+            remoteInputManager,
+            clipboardSyncManager,
+            mediaControlManager,
+            galleryManager
         )
         fileServer = FileServer(this, storageManager, pairingManager, screenMirrorManager)
     }
 
     fun startServices() {
         discoveryService.startAdvertising()
+        clipboardSyncManager.startListening()
         webSocketServer.start()
         fileServer.start()
     }
 
     fun stopServices() {
         discoveryService.stopAdvertising()
+        clipboardSyncManager.stopListening()
         webSocketServer.stop()
         fileServer.stop()
     }

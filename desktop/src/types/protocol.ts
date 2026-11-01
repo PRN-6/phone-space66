@@ -37,7 +37,18 @@ export type MessageType =
   | 'SCREEN_MIRROR_STOP'
   | 'SCREEN_MIRROR_STATUS'
   | 'REMOTE_INPUT_EVENT'
-  | 'REMOTE_INPUT_RESPONSE';
+  | 'REMOTE_INPUT_RESPONSE'
+  // Phase 6
+  | 'NOTIFICATION_POSTED'
+  | 'NOTIFICATION_REMOVED'
+  | 'NOTIFICATION_DISMISS_REQUEST'
+  | 'NOTIFICATION_LIST_REQUEST'
+  | 'NOTIFICATION_LIST_RESPONSE'
+  | 'CLIPBOARD_SYNC'
+  | 'MEDIA_PLAYBACK_STATE'
+  | 'MEDIA_CONTROL_ACTION'
+  | 'GALLERY_LIST_REQUEST'
+  | 'GALLERY_LIST_RESPONSE';
 
 export interface ProtocolMessage<T = unknown> {
   protocolVersion: number;
@@ -271,6 +282,82 @@ export interface RemoteInputResponsePayload {
   success: boolean;
   eventType: RemoteInputEventType;
   error?: string;
+}
+
+// -------------------------------------------------------------
+// Phase 6: Notifications, Clipboard, Media & Gallery Models
+// -------------------------------------------------------------
+
+export interface PhoneNotification {
+  id: string;
+  packageName: string;
+  appName: string;
+  title: string;
+  text: string;
+  postTime: number;
+  isClearable: boolean;
+  iconBase64?: string;
+}
+
+export interface NotificationDismissPayload {
+  notificationId: string;
+}
+
+export interface NotificationListResponsePayload {
+  notifications: PhoneNotification[];
+  totalCount: number;
+}
+
+export interface ClipboardPayload {
+  text: string;
+  timestamp: number;
+  source: 'phone' | 'desktop';
+}
+
+export interface MediaPlaybackStatePayload {
+  hasActiveSession: boolean;
+  packageName?: string;
+  appName?: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+  isPlaying: boolean;
+  durationMs: number;
+  positionMs: number;
+  albumArtUrl?: string;
+  canSkipNext?: boolean;
+  canSkipPrev?: boolean;
+}
+
+export interface MediaControlActionPayload {
+  action: 'play' | 'pause' | 'toggle' | 'next' | 'prev' | 'seek';
+  positionMs?: number;
+}
+
+export interface GalleryItem {
+  id: string;
+  path: string;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  modifiedAt: number;
+  width?: number;
+  height?: number;
+  durationMs?: number;
+  thumbnailUrl: string;
+  downloadUrl: string;
+}
+
+export interface GalleryListRequestPayload {
+  category?: 'all' | 'camera' | 'screenshots' | 'videos';
+  limit?: number;
+  offset?: number;
+}
+
+export interface GalleryListResponsePayload {
+  items: GalleryItem[];
+  totalCount: number;
+  category: string;
 }
 
 export interface PairRequestPayload {

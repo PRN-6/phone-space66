@@ -15,6 +15,10 @@ import {
 import { useConnectionStore } from '../../stores/connectionStore';
 import { useDeviceStore } from '../../stores/deviceStore';
 import { useWindowStore } from '../../stores/windowStore';
+import { useNotificationStore } from '../../stores/notificationStore';
+import { useMediaStore } from '../../stores/mediaStore';
+import { mediaService } from '../../services/mediaService';
+import { Play, Pause, SkipForward, Music } from 'lucide-react';
 
 export const TopStatusBar: React.FC = () => {
   const [timeStr, setTimeStr] = useState('');
@@ -23,6 +27,8 @@ export const TopStatusBar: React.FC = () => {
   const { status, latencyMs, setShowPairingModal } = useConnectionStore();
   const { hardware, battery, network } = useDeviceStore();
   const { toggleQuickSettings, isQuickSettingsOpen, openWindow } = useWindowStore();
+  const { unreadCount } = useNotificationStore();
+  const { playback } = useMediaStore();
 
   useEffect(() => {
     const updateTime = () => {
@@ -113,6 +119,30 @@ export const TopStatusBar: React.FC = () => {
           </div>
         )}
 
+        {/* Active Media Playback Capsule */}
+        {isConnected && playback.hasActiveSession && (
+          <div className="flex items-center space-x-2 px-2 py-0.5 rounded-full bg-charcoal-800 border border-white/10 text-silver-200">
+            <Music className="w-3 h-3 text-silver-300" />
+            <span className="max-w-[110px] truncate text-[11px] font-medium text-silver-100">
+              {playback.title}
+            </span>
+            <button
+              onClick={() => mediaService.sendAction('toggle')}
+              className="p-0.5 hover:text-white transition-colors"
+              title={playback.isPlaying ? 'Pause' : 'Play'}
+            >
+              {playback.isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+            </button>
+            <button
+              onClick={() => mediaService.sendAction('next')}
+              className="p-0.5 hover:text-white transition-colors"
+              title="Next Track"
+            >
+              <SkipForward className="w-3 h-3" />
+            </button>
+          </div>
+        )}
+
         {/* Real Wi-Fi Indicator */}
         {isConnected && network ? (
           <div
@@ -132,7 +162,11 @@ export const TopStatusBar: React.FC = () => {
           title="Notification Center"
         >
           <Bell className="w-3.5 h-3.5" />
-          <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-silver-100 rounded-full" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[13px] h-[13px] px-0.5 rounded-full bg-silver-100 text-charcoal-950 font-mono text-[9px] font-bold flex items-center justify-center">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
 
         {/* Quick Settings Toggle */}
