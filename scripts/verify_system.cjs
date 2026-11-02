@@ -16,6 +16,7 @@ const rootDir = path.join(__dirname, '..');
 
 const testSuites = [
   { name: 'Phase 1: Protocol Envelope & Telemetry Specs', script: 'tests/desktop/protocol.test.cjs', env: 'sandboxed' },
+  { name: 'Phase 1: USB Bridge & Storage Architecture Specs', script: 'tests/desktop/usb_bridge_and_storage.test.cjs', env: 'sandboxed' },
   { name: 'Phase 1: LAN Discovery & Authenticated Handshake', script: 'tests/integration/test_companion_handshake.cjs', env: 'network' },
   { name: 'Phase 2: Bidirectional File Transfer & Streaming Checksum', script: 'tests/integration/test_file_transfer.cjs', env: 'network' },
   { name: 'Phase 3: Hyprland Window Manager & Snapping Engine', script: 'tests/desktop/window_manager.test.cjs', env: 'sandboxed' },

@@ -42,6 +42,8 @@ export const FileManagerWindow: React.FC = () => {
     currentPath,
     parentPath,
     entries,
+    storageState,
+    storageMessage,
     sortBy,
     sortOrder,
     viewMode,
@@ -395,14 +397,17 @@ export const FileManagerWindow: React.FC = () => {
                 Connect Phone via USB Wire
               </h3>
               <p className="text-xs text-silver-400 max-w-sm mt-1.5 mb-5">
-                Plug your mobile phone into your laptop with a USB cable and select &quot;File Transfer&quot; (MTP) on your phone screen.
+                Plug your phone into your laptop with a USB cable and select &quot;File Transfer&quot; (MTP) in notifications.
               </p>
               <button
-                onClick={() => useConnectionStore.getState().connectUsbWire()}
+                onClick={async () => {
+                  const { discoveryService } = await import('../../services/discoveryService');
+                  discoveryService.probeAddress('127.0.0.1', 6655);
+                }}
                 className="px-5 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-750 text-silver-100 hover:text-white border border-white/20 hover:border-white/40 text-xs font-bold flex items-center space-x-2 transition-all shadow-sm"
               >
                 <Zap className="w-4 h-4 text-silver-300" />
-                <span>⚡ Mount Wired USB Storage (No App Needed)</span>
+                <span>⚡ Connect USB Phone</span>
               </button>
             </div>
           ) : isLoading ? (
@@ -410,10 +415,32 @@ export const FileManagerWindow: React.FC = () => {
               <RefreshCw className="w-4 h-4 animate-spin text-silver-300" />
               <span>Reading phone storage...</span>
             </div>
+          ) : storageState === 'LOCKED_OR_CHARGING_ONLY' ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-silver-300">
+              <div className="w-16 h-16 rounded-2xl bg-charcoal-900 border border-white/20 flex items-center justify-center text-silver-200 mb-4 shadow-glow-subtle">
+                <Smartphone className="w-8 h-8 text-silver-100 animate-pulse" />
+              </div>
+              <h3 className="text-base font-bold text-white tracking-wide">
+                Phone Storage Locked (Charging Only Mode)
+              </h3>
+              <div className="text-xs text-silver-400 max-w-md mt-2 mb-5 space-y-1 text-left bg-charcoal-900 p-3.5 rounded-xl border border-white/10 font-mono">
+                <div>1. Unlock your phone screen (Fingerprint or PIN).</div>
+                <div>2. Swipe down from top notifications.</div>
+                <div>3. Tap <b>&quot;Charging this device via USB&quot;</b>.</div>
+                <div>4. Select <b>&quot;File Transfer / Android Auto&quot;</b>.</div>
+              </div>
+              <button
+                onClick={() => fileTransferService.fetchDirectory(currentPath)}
+                className="px-5 py-2 rounded-xl bg-charcoal-800 hover:bg-charcoal-750 text-white border border-white/20 text-xs font-bold flex items-center space-x-2 transition-all shadow-sm"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Refresh Phone Storage</span>
+              </button>
+            </div>
           ) : filteredEntries.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center text-silver-500 text-xs">
               <Folder className="w-10 h-10 text-charcoal-700 mb-2" />
-              <span>Folder is empty</span>
+              <span>{storageMessage || 'Folder is empty'}</span>
             </div>
           ) : viewMode === 'grid' ? (
             /* Grid View */

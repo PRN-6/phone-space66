@@ -48,7 +48,13 @@ export type MessageType =
   | 'MEDIA_PLAYBACK_STATE'
   | 'MEDIA_CONTROL_ACTION'
   | 'GALLERY_LIST_REQUEST'
-  | 'GALLERY_LIST_RESPONSE';
+  | 'GALLERY_LIST_RESPONSE'
+  // Hardware & PnP Diagnostics
+  | 'HARDWARE_STATUS_REQUEST'
+  | 'HARDWARE_STATUS_RESPONSE'
+  | 'DEVICE_ATTACHED'
+  | 'STORAGE_UNLOCKED'
+  | 'STORAGE_STATUS_CHANGED';
 
 export interface ProtocolMessage<T = unknown> {
   protocolVersion: number;
@@ -148,11 +154,75 @@ export interface StorageListRequestPayload {
   sortOrder?: 'asc' | 'desc';
 }
 
+export type ErrorCode =
+  | 'USB_DEVICE_NOT_FOUND'
+  | 'USB_DEVICE_LOCKED'
+  | 'USB_CHARGING_ONLY'
+  | 'MTP_NOT_AVAILABLE'
+  | 'MTP_STORAGE_EMPTY'
+  | 'ADB_NOT_INSTALLED'
+  | 'ADB_UNAUTHORIZED'
+  | 'COMPANION_NOT_RUNNING'
+  | 'WEBSOCKET_CONNECTION_FAILED'
+  | 'DEVICE_DISCONNECTED'
+  | 'SYNC_FAILED'
+  | 'FILE_TRANSFER_FAILED'
+  | 'PERMISSION_DENIED'
+  | 'INVALID_MESSAGE'
+  | 'BRIDGE_STARTUP_FAILED';
+
+export interface StructuredError {
+  code: ErrorCode;
+  message: string;
+  subsystem: 'usb' | 'mtp' | 'adb' | 'companion' | 'websocket' | 'storage' | 'system';
+  timestamp: number;
+  suggestedResolution: string;
+  technicalDetails?: string;
+}
+
+export type StorageState =
+  | 'READY'
+  | 'DEVICE_NOT_FOUND'
+  | 'LOCKED_OR_CHARGING_ONLY'
+  | 'MTP_NOT_AVAILABLE'
+  | 'MTP_DEVICE_BUSY'
+  | 'STORAGE_NOT_EXPOSED'
+  | 'PERMISSION_DENIED'
+  | 'TRANSFER_FAILED'
+  | 'DEVICE_DISCONNECTED';
+
+export type TransportType = 'mtp' | 'adb' | 'companion' | 'none';
+
+export interface HardwareStatusResponsePayload {
+  pnpDevices: Array<{
+    instanceId: string;
+    name: string;
+    model: string;
+    manufacturer: string;
+    vendorId: string;
+    productId: string;
+    status: string;
+    isConnected: boolean;
+    isMtpDriver: boolean;
+  }>;
+  mtpStatus: StorageState;
+  adbStatus: 'NOT_INSTALLED' | 'UNAUTHORIZED' | 'AUTHORIZED' | 'OFFLINE' | 'NO_DEVICES';
+  adbDevices: Array<{
+    serial: string;
+    state: string;
+    model: string;
+    product: string;
+  }>;
+  activeDevice?: unknown;
+}
+
 export interface StorageListResponsePayload {
   currentPath: string;
   parentPath: string | null;
   entries: FileItem[];
   totalEntries: number;
+  storageState?: StorageState;
+  message?: string;
 }
 
 export type FileOperationAction = 'mkdir' | 'rename' | 'delete' | 'copy' | 'move';

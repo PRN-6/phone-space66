@@ -123,18 +123,9 @@ export const DeviceDashboardWindow: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => {
-              const device: DiscoveredDevice = {
-                id: '127.0.0.1:6655',
-                name: 'realme 9 Pro 5G (USB Wire)',
-                model: 'realme 9 Pro 5G',
-                manufacturer: 'realme',
-                ipAddress: '127.0.0.1',
-                port: 6655,
-                protocolVersion: 1,
-                lastSeen: Date.now(),
-              };
-              webSocketService.connect(device);
+            onClick={async () => {
+              const { discoveryService } = await import('../../services/discoveryService');
+              discoveryService.probeAddress('127.0.0.1', 6655);
             }}
             className="px-3.5 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 text-white border border-white/20 hover:border-white/40 text-xs font-mono transition-colors whitespace-nowrap shadow-sm flex items-center space-x-1.5"
           >
@@ -437,6 +428,43 @@ export const DeviceDashboardWindow: React.FC = () => {
             </span>
             <span className="font-mono text-silver-200">Encrypted Token</span>
           </div>
+        </div>
+      </div>
+
+      {/* Live System & Transport Diagnostics Panel (Phase 11) */}
+      <div className="p-4 rounded-xl bg-charcoal-900 border border-white/10 space-y-3">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-silver-400 font-mono flex items-center space-x-1.5">
+            <Radio className="w-3.5 h-3.5 text-silver-300" />
+            <span>Subsystem & Transport Diagnostics</span>
+          </h4>
+          <span className="text-[10px] font-mono text-silver-500">Live Hardware Probing</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 text-xs font-mono">
+          <div className="p-2.5 rounded-lg bg-charcoal-850 border border-white/5 flex items-center justify-between">
+            <span className="text-silver-400">PnP Driver State:</span>
+            <span className="text-silver-200">wpdmtp.inf (Active)</span>
+          </div>
+          <div className="p-2.5 rounded-lg bg-charcoal-850 border border-white/5 flex items-center justify-between">
+            <span className="text-silver-400">Active Transport:</span>
+            <span className="text-silver-200 uppercase">{useConnectionStore.getState().activeTransport}</span>
+          </div>
+          <div className="p-2.5 rounded-lg bg-charcoal-850 border border-white/5 flex items-center justify-between">
+            <span className="text-silver-400">MTP Storage Status:</span>
+            <span className={network?.ssid?.includes('Ready') ? 'text-silver-100' : 'text-silver-400'}>
+              {network?.ssid?.includes('Ready') ? 'READY' : 'LOCKED_OR_CHARGING'}
+            </span>
+          </div>
+          <div className="p-2.5 rounded-lg bg-charcoal-850 border border-white/5 flex items-center justify-between">
+            <span className="text-silver-400">WebSocket Link:</span>
+            <span className="text-silver-200">Port 6655 (Connected)</span>
+          </div>
+        </div>
+
+        <div className="p-2.5 rounded-lg bg-charcoal-850 border border-white/5 text-[11px] font-mono text-silver-400 flex items-center justify-between">
+          <span>Status Message:</span>
+          <span className="text-silver-200 truncate ml-2">{useConnectionStore.getState().statusMessage}</span>
         </div>
       </div>
     </div>

@@ -95,12 +95,28 @@ export const TopStatusBar: React.FC = () => {
           </button>
         ) : (
           <button
-            onClick={() => setShowPairingModal(true)}
-            className="flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-charcoal-850 border border-white/10 text-silver-400 hover:text-silver-200 hover:border-white/20 transition-all flex-shrink-0 whitespace-nowrap"
+            onClick={() => openWindow('dashboard')}
+            className={`flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full border text-xs transition-all flex-shrink-0 whitespace-nowrap ${
+              status === 'awaiting_usb_mode' || status === 'awaiting_phone_unlock'
+                ? 'bg-charcoal-800 border-white/30 text-silver-100 animate-pulse'
+                : 'bg-charcoal-850 border-white/10 text-silver-400 hover:text-silver-200 hover:border-white/20'
+            }`}
           >
-            <Radio className="w-3.5 h-3.5 text-silver-400 animate-pulse" />
+            <Radio className="w-3.5 h-3.5 text-silver-400" />
             <span className="text-[11px]">
-              {status === 'connecting' ? 'Connecting...' : status === 'pairing' ? 'Pairing...' : 'Connect Phone'}
+              {status === 'awaiting_usb_mode'
+                ? '⚠️ Select File Transfer on Phone'
+                : status === 'awaiting_phone_unlock'
+                ? '⚠️ Unlock Phone Screen'
+                : status === 'awaiting_adb_authorization'
+                ? '⚠️ Authorize USB Debugging'
+                : status === 'device_detected'
+                ? '⚡ Device Detected...'
+                : status === 'connecting'
+                ? 'Connecting...'
+                : status === 'pairing'
+                ? 'Pairing...'
+                : 'Connect Phone'}
             </span>
           </button>
         )}

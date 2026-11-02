@@ -58,7 +58,13 @@ export type MessageType =
   | "MEDIA_PLAYBACK_STATE"
   | "MEDIA_CONTROL_ACTION"
   | "GALLERY_LIST_REQUEST"
-  | "GALLERY_LIST_RESPONSE";
+  | "GALLERY_LIST_RESPONSE"
+  // Hardware & PnP Diagnostics
+  | "HARDWARE_STATUS_REQUEST"
+  | "HARDWARE_STATUS_RESPONSE"
+  | "DEVICE_ATTACHED"
+  | "STORAGE_UNLOCKED"
+  | "STORAGE_STATUS_CHANGED";
 
 export interface ProtocolMessage<T = unknown> {
   protocolVersion: number;

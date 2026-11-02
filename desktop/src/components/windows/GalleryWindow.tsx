@@ -35,6 +35,10 @@ export const GalleryWindow: React.FC = () => {
   };
 
   const getMediaUrl = (urlPath: string) => {
+    if (!urlPath) return '';
+    if (urlPath.startsWith('http://') || urlPath.startsWith('https://') || urlPath.startsWith('data:')) {
+      return urlPath;
+    }
     const ip = targetIp || '127.0.0.1';
     const port = targetHttpPort || 6656;
     const token = authToken || '';
@@ -153,8 +157,9 @@ export const GalleryWindow: React.FC = () => {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {items.map((item) => {
-              const isVideo = item.mimeType.startsWith('video');
-              const thumbUrl = getMediaUrl(item.thumbnailUrl);
+              const isVideo = item.mimeType?.startsWith('video') || (item as unknown as { isVideo?: boolean }).isVideo;
+              const rawThumb = item.thumbnailUrl || (item as unknown as { thumbnailUri?: string }).thumbnailUri || item.downloadUrl || (item as unknown as { uri?: string }).uri || '';
+              const thumbUrl = getMediaUrl(rawThumb);
 
               return (
                 <div
@@ -245,9 +250,9 @@ export const GalleryWindow: React.FC = () => {
             className="flex-1 flex items-center justify-center p-6 overflow-hidden"
             onClick={() => setSelectedItem(null)}
           >
-            {selectedItem.mimeType.startsWith('video') ? (
+            {selectedItem.mimeType?.startsWith('video') || (selectedItem as unknown as { isVideo?: boolean }).isVideo ? (
               <video
-                src={getMediaUrl(selectedItem.downloadUrl)}
+                src={getMediaUrl(selectedItem.downloadUrl || (selectedItem as unknown as { uri?: string }).uri || '')}
                 controls
                 autoPlay
                 className="max-w-full max-h-full rounded-xl shadow-2xl border border-white/10"
@@ -255,7 +260,7 @@ export const GalleryWindow: React.FC = () => {
               />
             ) : (
               <img
-                src={getMediaUrl(selectedItem.downloadUrl)}
+                src={getMediaUrl(selectedItem.downloadUrl || (selectedItem as unknown as { uri?: string }).uri || '')}
                 alt={selectedItem.name}
                 className="max-w-full max-h-full object-contain rounded-xl shadow-2xl border border-white/10"
                 onClick={(e) => e.stopPropagation()}

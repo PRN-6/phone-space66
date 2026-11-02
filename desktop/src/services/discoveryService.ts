@@ -2,19 +2,30 @@ import { useConnectionStore } from '../stores/connectionStore';
 import { DiscoveredDevice } from '../types/protocol';
 import { webSocketService } from './webSocketService';
 
+/**
+ * ConnectionCoordinator & DiscoveryService
+ * Orchestrates device discovery across:
+ * 1. Local USB Hardware Bridge (ws://127.0.0.1:6655/ws)
+ * 2. Android Hotspot Gateway (192.168.43.1:6655)
+ * 3. Local LAN / Wi-Fi Subnet Broadcasts
+ * 4. Native Tauri mDNS Discovery
+ */
 class DiscoveryService {
   private isScanning = false;
   private scanInterval: NodeJS.Timeout | null = null;
+  private isConnecting = false;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
 
   async startDiscovery() {
     if (this.isScanning) return;
     this.isScanning = true;
     useConnectionStore.getState().setStatus('discovering');
 
-    // Immediate initial probe of local USB hardware bridge on launch
-    this.probeAddress('127.0.0.1', 6655);
+    // 1. Immediate probe of local USB hardware bridge on startup
+    await this.probeAddress('127.0.0.1', 6655);
 
-    // If Tauri is available, invoke native mDNS discovery command
+    // 2. If Tauri native runtime is present, start mDNS discovery
     if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
@@ -22,11 +33,11 @@ class DiscoveryService {
         this.pollTauriDiscovery();
         return;
       } catch (e) {
-        console.warn('Native Tauri discovery fallback to web polling:', e);
+        console.warn('[DISCOVERY] Native Tauri discovery fallback to LAN polling:', e);
       }
     }
 
-    // Web / Direct LAN fallback: Poll known gateway addresses or manual IP
+    // 3. Periodic LAN & USB Polling Loop
     this.startDirectLanProbe();
   }
 
@@ -37,36 +48,41 @@ class DiscoveryService {
         const devices = (await invoke('get_discovered_devices')) as DiscoveredDevice[];
         if (devices && devices.length > 0) {
           useConnectionStore.getState().setDiscoveredDevices(devices);
-          // If not connected, auto-connect to the first discovered device
-          if (useConnectionStore.getState().status === 'discovering' || useConnectionStore.getState().status === 'disconnected') {
-            webSocketService.connect(devices[0]);
+          const currentStatus = useConnectionStore.getState().status;
+          if (
+            (currentStatus === 'discovering' || currentStatus === 'disconnected') &&
+            !this.isConnecting
+          ) {
+            this.coordinateConnection(devices[0]);
           }
         }
       } catch (e) {
-        console.error('Error polling discovered devices:', e);
+        console.error('[DISCOVERY] Error polling Tauri discovered devices:', e);
       }
     }, 2000);
   }
 
   private startDirectLanProbe() {
-    // Probe local USB hardware bridge (127.0.0.1) and common hotspot gateway (192.168.43.1)
     const defaultTargets = ['127.0.0.1', '192.168.43.1'];
-    
+
     this.scanInterval = setInterval(async () => {
       const currentStatus = useConnectionStore.getState().status;
-      // If already connected, skip active polling
-      if (currentStatus === 'connected') return;
+      // If already fully connected and active, skip aggressive probing
+      if (currentStatus === 'connected' || currentStatus === 'synchronizing') {
+        this.reconnectAttempts = 0;
+        return;
+      }
 
       for (const ip of defaultTargets) {
-        this.probeAddress(ip, 6655);
+        await this.probeAddress(ip, 6655);
       }
-    }, 3000);
+    }, 2500);
   }
 
-  async probeAddress(ip: string, port: number = 6655): Promise<boolean> {
+  async probeAddress(ip: string, port = 6655): Promise<boolean> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
 
       const res = await fetch(`http://${ip}:${port}/ping`, {
         signal: controller.signal,
@@ -76,7 +92,7 @@ class DiscoveryService {
       clearTimeout(timeoutId);
 
       if (res && res.ok) {
-        let model = 'realme 9 Pro 5G';
+        let model = 'Android Device';
         try {
           const data = await res.json();
           if (data && data.model) model = data.model;
@@ -86,7 +102,7 @@ class DiscoveryService {
         const device: DiscoveredDevice = {
           id: `${ip}:${port}`,
           name: isLocalBridge ? `${model} (USB Wire)` : `Android Companion (${ip})`,
-          model: model,
+          model,
           manufacturer: 'Android',
           ipAddress: ip,
           port,
@@ -96,17 +112,43 @@ class DiscoveryService {
 
         useConnectionStore.getState().addDiscoveredDevice(device);
 
-        // Auto-connect immediately if not currently connected
         const currentStatus = useConnectionStore.getState().status;
-        if (currentStatus === 'disconnected' || currentStatus === 'discovering') {
-          console.log(`Auto-connecting to discovered hardware device: ${device.name}`);
-          webSocketService.connect(device);
+        if (
+          (currentStatus === 'disconnected' || currentStatus === 'discovering') &&
+          !this.isConnecting
+        ) {
+          this.coordinateConnection(device);
         }
         return true;
       }
       return false;
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Connection Coordinator:
+   * Selects transport strategy, prevents duplicate connections,
+   * sets up timeouts, and initiates session.
+   */
+  async coordinateConnection(device: DiscoveredDevice) {
+    if (this.isConnecting) return;
+    this.isConnecting = true;
+
+    try {
+      console.log(`[COORDINATOR] Initiating connection strategy for: ${device.name} (${device.ipAddress})`);
+      const isUsb = device.ipAddress === '127.0.0.1' || device.ipAddress === 'localhost';
+
+      useConnectionStore.getState().setConnectionMode(isUsb ? 'usb' : 'lan');
+      useConnectionStore.getState().setActiveTransport(isUsb ? 'mtp' : 'companion');
+      useConnectionStore.getState().setStatus('connecting', `Connecting to ${device.name}...`);
+
+      webSocketService.connect(device);
+    } finally {
+      setTimeout(() => {
+        this.isConnecting = false;
+      }, 1000);
     }
   }
 
@@ -120,5 +162,3 @@ class DiscoveryService {
 }
 
 export const discoveryService = new DiscoveryService();
-
-

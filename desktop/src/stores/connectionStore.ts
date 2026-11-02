@@ -1,12 +1,18 @@
 import { create } from 'zustand';
-import { DiscoveredDevice, PairChallengePayload } from '../types/protocol';
+import { DiscoveredDevice, PairChallengePayload, TransportType, ErrorCode } from '../types/protocol';
 
 export type ConnectionStatus =
   | 'disconnected'
   | 'discovering'
+  | 'device_detected'
+  | 'awaiting_phone_unlock'
+  | 'awaiting_usb_mode'
+  | 'awaiting_adb_authorization'
   | 'connecting'
   | 'pairing'
   | 'connected'
+  | 'synchronizing'
+  | 'reconnecting'
   | 'error';
 
 export type ConnectionMode = 'lan' | 'usb';
@@ -15,6 +21,20 @@ interface ConnectionState {
   status: ConnectionStatus;
   connectionMode: ConnectionMode;
   isConnected: boolean;
+  statusMessage: string;
+
+  // Real Hardware Metadata
+  deviceId: string | null;
+  deviceModel: string | null;
+  manufacturer: string | null;
+  androidVersion: string | null;
+  activeTransport: TransportType;
+  connectionTimestamp: number | null;
+  capabilities: string[];
+  lastSyncTimestamp: number | null;
+  errorCode: ErrorCode | string | null;
+  errorDescription: string | null;
+
   targetIp: string;
   targetHttpPort: number;
   discoveredDevices: DiscoveredDevice[];
@@ -26,18 +46,28 @@ interface ConnectionState {
   showPairingModal: boolean;
   manualIp: string;
 
-  setStatus: (status: ConnectionStatus) => void;
+  // Actions
+  setStatus: (status: ConnectionStatus, statusMessage?: string) => void;
   setConnectionMode: (mode: ConnectionMode) => void;
+  setActiveTransport: (transport: TransportType) => void;
+  setDeviceMetadata: (meta: {
+    deviceId?: string;
+    deviceModel?: string;
+    manufacturer?: string;
+    androidVersion?: string;
+    capabilities?: string[];
+  }) => void;
   setDiscoveredDevices: (devices: DiscoveredDevice[]) => void;
   addDiscoveredDevice: (device: DiscoveredDevice) => void;
   setActiveDevice: (device: DiscoveredDevice | null) => void;
   setAuthToken: (token: string | null) => void;
   setLatencyMs: (latency: number | null) => void;
+  setErrorState: (code: ErrorCode | string | null, description: string | null) => void;
   setError: (error: string | null) => void;
   setPendingChallenge: (challenge: PairChallengePayload | null) => void;
   setShowPairingModal: (show: boolean) => void;
   setManualIp: (ip: string) => void;
-  connectUsbWire: (phoneName?: string) => void;
+  updateSyncTimestamp: () => void;
   disconnect: () => void;
 }
 
@@ -45,6 +75,19 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
   status: 'disconnected',
   connectionMode: 'lan',
   isConnected: false,
+  statusMessage: 'No Android device connected.',
+
+  deviceId: null,
+  deviceModel: null,
+  manufacturer: null,
+  androidVersion: null,
+  activeTransport: 'none',
+  connectionTimestamp: null,
+  capabilities: [],
+  lastSyncTimestamp: null,
+  errorCode: null,
+  errorDescription: null,
+
   targetIp: '',
   targetHttpPort: 6656,
   discoveredDevices: [],
@@ -56,9 +99,71 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
   showPairingModal: false,
   manualIp: '',
 
-  setStatus: (status) => set({ status, isConnected: status === 'connected' }),
+  setStatus: (status, statusMessage) => {
+    let msg = statusMessage;
+    if (!msg) {
+      switch (status) {
+        case 'disconnected':
+          msg = 'No Android device connected.';
+          break;
+        case 'discovering':
+          msg = 'Scanning for devices over USB and local network...';
+          break;
+        case 'device_detected':
+          msg = 'Android phone detected. Initializing link...';
+          break;
+        case 'awaiting_phone_unlock':
+          msg = 'Phone is locked. Unlock phone screen to allow access.';
+          break;
+        case 'awaiting_usb_mode':
+          msg = 'Storage locked. Swipe down notifications on phone and select "File Transfer".';
+          break;
+        case 'awaiting_adb_authorization':
+          msg = 'ADB prompt detected. Approve USB debugging on phone screen.';
+          break;
+        case 'connecting':
+          msg = 'Establishing secure handshake...';
+          break;
+        case 'pairing':
+          msg = 'Pairing verification in progress...';
+          break;
+        case 'connected':
+          msg = 'Phone connected and active.';
+          break;
+        case 'synchronizing':
+          msg = 'Synchronizing storage and telemetry...';
+          break;
+        case 'reconnecting':
+          msg = 'Reconnecting to device...';
+          break;
+        case 'error':
+          msg = 'Connection error.';
+          break;
+      }
+    }
+
+    set({
+      status,
+      statusMessage: msg,
+      isConnected: status === 'connected' || status === 'synchronizing',
+      connectionTimestamp: (status === 'connected' || status === 'synchronizing') ? Date.now() : null,
+    });
+  },
+
   setConnectionMode: (connectionMode) => set({ connectionMode }),
+  setActiveTransport: (activeTransport) => set({ activeTransport }),
+
+  setDeviceMetadata: (meta) =>
+    set((state) => ({
+      deviceId: meta.deviceId ?? state.deviceId,
+      deviceModel: meta.deviceModel ?? state.deviceModel,
+      manufacturer: meta.manufacturer ?? state.manufacturer,
+      androidVersion: meta.androidVersion ?? state.androidVersion,
+      capabilities: meta.capabilities ?? state.capabilities,
+    })),
+
   setDiscoveredDevices: (discoveredDevices) => set({ discoveredDevices }),
+
   addDiscoveredDevice: (device) =>
     set((state) => {
       const exists = state.discoveredDevices.find((d) => d.id === device.id);
@@ -71,12 +176,17 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
       }
       return { discoveredDevices: [...state.discoveredDevices, device] };
     }),
+
   setActiveDevice: (activeDevice) =>
     set({
       activeDevice,
+      deviceId: activeDevice?.id || null,
+      deviceModel: activeDevice?.model || null,
+      manufacturer: activeDevice?.manufacturer || null,
       targetIp: activeDevice?.ipAddress || '',
       targetHttpPort: 6656,
     }),
+
   setAuthToken: (authToken) => {
     if (authToken) {
       localStorage.setItem('phonespace66_auth_token', authToken);
@@ -85,91 +195,46 @@ export const useConnectionStore = create<ConnectionState>((set) => ({
     }
     set({ authToken });
   },
+
   setLatencyMs: (latencyMs) => set({ latencyMs }),
-  setError: (error) => set({ error }),
+
+  setErrorState: (errorCode, errorDescription) =>
+    set({
+      status: 'error',
+      isConnected: false,
+      errorCode,
+      errorDescription,
+      error: errorDescription,
+      statusMessage: errorDescription || 'System error',
+    }),
+
+  setError: (error) => set({ error, errorDescription: error }),
   setPendingChallenge: (pendingChallenge) => set({ pendingChallenge }),
   setShowPairingModal: (showPairingModal) => set({ showPairingModal }),
   setManualIp: (manualIp) => set({ manualIp }),
-
-  connectUsbWire: (phoneName?: string) => {
-    const device: DiscoveredDevice = {
-      id: 'usb-mtp-phone',
-      name: phoneName || 'Android Phone (USB Wire)',
-      model: phoneName || 'Android Device (USB Wire)',
-      manufacturer: 'Android',
-      ipAddress: 'usb://wire',
-      port: 6655,
-      protocolVersion: 1,
-      lastSeen: Date.now(),
-    };
-
-    set({
-      status: 'connected',
-      connectionMode: 'usb',
-      isConnected: true,
-      activeDevice: device,
-      targetIp: '127.0.0.1',
-      targetHttpPort: 6656,
-      authToken: 'usb-session-token',
-      latencyMs: 1,
-      error: null,
-      showPairingModal: false,
-    });
-
-    // Populate device telemetry in useDeviceStore
-    import('./deviceStore').then(({ useDeviceStore }) => {
-      useDeviceStore.getState().setTelemetry({
-        device: {
-          manufacturer: 'Android',
-          model: phoneName || 'Wired Mobile Phone',
-          marketName: 'USB MTP Storage Device',
-          androidVersion: '14.0',
-          sdkInt: 34,
-          uptimeMs: 7200000,
-        },
-        battery: {
-          level: 95,
-          isCharging: true,
-          chargingSource: 'USB',
-          temperatureCelsius: 28,
-          health: 'GOOD',
-        },
-        storage: {
-          totalBytes: 256000000000,
-          availableBytes: 168000000000,
-          usedBytes: 88000000000,
-        },
-        network: {
-          ipAddress: 'USB Wired Link',
-          ssid: 'USB High-Speed Bus',
-          linkSpeedMbps: 480,
-          isWifi: false,
-          isHotspot: false,
-        },
-      });
-    });
-
-    // Automatically load directory in fileTransferService
-    import('../services/fileTransferService').then(({ fileTransferService }) => {
-      fileTransferService.fetchDirectory('/storage/emulated/0');
-    });
-
-    // Automatically open File Manager window
-    import('./windowStore').then(({ useWindowStore }) => {
-      useWindowStore.getState().openWindow('file-manager');
-    });
-  },
+  updateSyncTimestamp: () => set({ lastSyncTimestamp: Date.now() }),
 
   disconnect: () =>
     set({
       status: 'disconnected',
       connectionMode: 'lan',
       isConnected: false,
+      statusMessage: 'No Android device connected.',
       activeDevice: null,
+      deviceId: null,
+      deviceModel: null,
+      manufacturer: null,
+      androidVersion: null,
+      activeTransport: 'none',
+      connectionTimestamp: null,
+      capabilities: [],
+      lastSyncTimestamp: null,
       targetIp: '',
       targetHttpPort: 6656,
       latencyMs: null,
       error: null,
+      errorCode: null,
+      errorDescription: null,
       pendingChallenge: null,
     }),
 }));

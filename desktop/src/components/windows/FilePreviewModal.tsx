@@ -27,6 +27,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClos
   const { activeDevice, authToken } = useConnectionStore();
   const [textContent, setTextContent] = useState<string | null>(null);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -34,14 +35,20 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClos
     return `${(bytes / 1048576).toFixed(2)} MB`;
   };
 
-  const isImage = file.mimeType.startsWith('image/');
-  const isVideo = file.mimeType.startsWith('video/');
-  const isAudio = file.mimeType.startsWith('audio/');
+  const isImage =
+    file.mimeType.startsWith('image/') ||
+    ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'svg'].includes(file.extension?.toLowerCase()) ||
+    /\.(jpg|jpeg|png|webp|gif|bmp|svg|raw|dng)$/i.test(file.name) ||
+    file.name.toUpperCase().startsWith('PXL_') ||
+    file.name.toUpperCase().startsWith('IMG_') ||
+    file.path.toLowerCase().includes('/dcim/') ||
+    file.path.toLowerCase().includes('/pictures/');
+
+  const isVideo = file.mimeType.startsWith('video/') || /\.(mp4|mov|mkv|m4v|webm)$/i.test(file.name);
+  const isAudio = file.mimeType.startsWith('audio/') || /\.(mp3|m4a|flac|wav|aac)$/i.test(file.name);
   const isText = file.mimeType.startsWith('text/') || ['txt', 'log', 'md', 'json', 'xml'].includes(file.extension);
 
-  const downloadUrl = activeDevice && authToken
-    ? `http://${activeDevice.ipAddress}:${DEFAULT_HTTP_PORT}/download?path=${encodeURIComponent(file.path)}`
-    : '';
+  const downloadUrl = fileTransferService.getDownloadUrl(file.path);
 
   useEffect(() => {
     if (isText && downloadUrl) {
@@ -100,12 +107,28 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClos
 
           {/* Preview Canvas */}
           <div className="h-72 bg-charcoal-950 flex items-center justify-center overflow-auto p-4 border-b border-white/5">
-            {isImage && downloadUrl ? (
+            {isImage && downloadUrl && !imageError ? (
               <img
                 src={downloadUrl}
                 alt={file.name}
+                onError={() => setImageError(true)}
                 className="max-h-full max-w-full object-contain rounded-lg border border-white/10"
               />
+            ) : isImage && imageError ? (
+              <div className="text-center p-6">
+                <ImageIcon className="w-16 h-16 text-silver-400 mx-auto mb-2 opacity-50" />
+                <div className="text-xs font-semibold text-silver-200">Camera Image / RAW Preview</div>
+                <div className="text-[11px] text-silver-400 mt-1 max-w-xs">
+                  This photo format requires full local rendering. Click Download to save directly to your PC.
+                </div>
+                <button
+                  onClick={() => fileTransferService.downloadFile(file)}
+                  className="mt-4 px-4 py-1.5 rounded-lg bg-silver-100 hover:bg-white text-charcoal-950 font-semibold text-xs inline-flex items-center space-x-1.5 shadow"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Photo</span>
+                </button>
+              </div>
             ) : isText ? (
               isLoadingContent ? (
                 <div className="text-xs text-silver-500 font-mono">Loading preview...</div>

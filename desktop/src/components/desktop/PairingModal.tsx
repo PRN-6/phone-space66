@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useConnectionStore } from '../../stores/connectionStore';
 import { webSocketService } from '../../services/webSocketService';
+import { discoveryService } from '../../services/discoveryService';
 import { DiscoveredDevice } from '../../types/protocol';
 
 export const PairingModal: React.FC = () => {
@@ -23,7 +24,6 @@ export const PairingModal: React.FC = () => {
     error,
     manualIp,
     setManualIp,
-    connectUsbWire,
   } = useConnectionStore();
 
   const [pinInput, setPinInput] = useState('');
@@ -169,7 +169,7 @@ export const PairingModal: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => connectUsbWire()}
+                    onClick={() => discoveryService.probeAddress('127.0.0.1', 6655)}
                     className="px-3.5 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 border border-white/20 text-silver-100 text-xs font-semibold flex items-center space-x-1.5 transition-all"
                   >
                     <Zap className="w-3.5 h-3.5 text-silver-300" />

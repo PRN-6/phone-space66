@@ -1,0 +1,24 @@
+{
+  "name": "phone-space66",
+  "version": "1.0.0",
+  "description": "Your Phone. Your Space. Your Desktop.",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix desktop",
+    "build": "npm run build --prefix desktop",
+    "bridge": "node scripts/usb_mtp_bridge.cjs",
+    "diagnostics": "node scripts/detect_usb_phone.cjs",
+    "test": "node scripts/verify_system.cjs",
+    "build:exe": "powershell -ExecutionPolicy Bypass -File .\\build_exe.ps1"
+  },
+  "keywords": [
+    "android",
+    "desktop",
+    "mtp",
+    "usb",
+    "screen-mirroring"
+  ],
+  "author": "PHONE SPACE66 Team",
+  "license": "MIT"
+}
+

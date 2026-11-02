@@ -21,7 +21,8 @@ Write-Host "1. Starting USB MTP Hardware Bridge..." -ForegroundColor Green
 $bridgeProc = Start-Process node -ArgumentList "$rootPath/scripts/usb_mtp_bridge.cjs" -PassThru -WindowStyle Hidden
 
 Write-Host "2. Starting PHONE SPACE66 Desktop Environment..." -ForegroundColor Green
-Write-Host "Open: http://localhost:1420 (or click Connect Phone)" -ForegroundColor Yellow
+Write-Host "Opening: http://localhost:1420" -ForegroundColor Yellow
+Start-Process "http://localhost:1420"
 Write-Host "Press Ctrl+C to stop." -ForegroundColor Gray
 Write-Host "================================================================" -ForegroundColor Cyan
 

@@ -45,6 +45,12 @@ class WebSocketService {
           useConnectionStore.getState().setStatus('connected');
           this.startHeartbeat();
           this.requestDeviceInfo();
+          import('./fileTransferService').then(({ fileTransferService }) => {
+            fileTransferService.fetchDirectory('/storage/emulated/0');
+          });
+          import('./galleryService').then(({ galleryService }) => {
+            galleryService.fetchGallery('all');
+          });
         } else {
           // Need pairing: initiate PAIR_REQUEST
           this.initiatePairing();
@@ -100,6 +106,12 @@ class WebSocketService {
         useConnectionStore.getState().setPendingChallenge(null);
         this.startHeartbeat();
         this.requestDeviceInfo();
+        import('./fileTransferService').then(({ fileTransferService }) => {
+          fileTransferService.fetchDirectory('/storage/emulated/0');
+        });
+        import('./galleryService').then(({ galleryService }) => {
+          galleryService.fetchGallery('all');
+        });
         import('./appService').then(({ appService }) => {
           appService.refreshApps();
         });
@@ -122,6 +134,70 @@ class WebSocketService {
       case 'DEVICE_INFO_RESPONSE': {
         const telemetry = msg.payload as DeviceInfoResponsePayload;
         useDeviceStore.getState().setTelemetry(telemetry);
+
+        // Update connectionStore hardware metadata
+        useConnectionStore.getState().setDeviceMetadata({
+          deviceModel: telemetry.device.model,
+          manufacturer: telemetry.device.manufacturer,
+          androidVersion: telemetry.device.androidVersion,
+        });
+
+        const transports = (telemetry as unknown as { transports?: { mtp?: string; adb?: string } }).transports;
+        if (transports) {
+          if (transports.mtp === 'LOCKED_OR_CHARGING_ONLY') {
+            useConnectionStore.getState().setStatus(
+              'awaiting_usb_mode',
+              'Phone screen is locked. Please unlock screen and select "File Transfer" in phone notifications.'
+            );
+          } else if (transports.adb === 'UNAUTHORIZED') {
+            useConnectionStore.getState().setStatus(
+              'awaiting_adb_authorization',
+              'Please approve USB debugging authorization prompt on your phone.'
+            );
+          } else if (transports.mtp === 'READY') {
+            useConnectionStore.getState().setStatus(
+              'connected',
+              `${telemetry.device.model} connected and ready.`
+            );
+          }
+        }
+        break;
+      }
+
+      case 'DEVICE_ATTACHED': {
+        console.log('[WS] Physical Android device attached:', msg.payload?.device);
+        useConnectionStore.getState().setStatus('device_detected', 'Phone detected via USB. Initializing...');
+        this.requestDeviceInfo();
+        break;
+      }
+
+      case 'STORAGE_UNLOCKED': {
+        console.log('[WS] MTP storage unlocked by user on phone.');
+        useConnectionStore.getState().setStatus('connected', 'Phone storage unlocked and active.');
+        this.requestDeviceInfo();
+        import('./fileTransferService').then(({ fileTransferService }) => {
+          fileTransferService.fetchDirectory('/storage/emulated/0');
+        });
+        break;
+      }
+
+      case 'DEVICE_DISCONNECTED': {
+        console.log('[WS] Phone physically disconnected.');
+        useConnectionStore.getState().setStatus('disconnected', 'Phone disconnected from USB.');
+        import('../stores/fileManagerStore').then(({ useFileManagerStore }) => {
+          useFileManagerStore.getState().setCurrentDirectory(
+            '/storage/emulated/0',
+            null,
+            [],
+            'DEVICE_DISCONNECTED',
+            'Phone disconnected from USB.'
+          );
+        });
+        break;
+      }
+
+      case 'HARDWARE_STATUS_RESPONSE': {
+        console.log('[WS] Received hardware status response:', msg.payload);
         break;
       }
 

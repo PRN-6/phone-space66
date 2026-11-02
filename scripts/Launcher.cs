@@ -31,6 +31,9 @@ namespace PhoneSpace66
                 distDir = Path.Combine(appDir, "dist");
             }
 
+            // 0. Kill any dangling previous bridge on 6655/6656
+            KillOldBridgeProcesses();
+
             // 1. Start USB MTP Hardware Bridge
             StartBridge(appDir);
 
@@ -193,6 +196,24 @@ namespace PhoneSpace66
                 {
                     bridgeProcess.Kill();
                 }
+            }
+            catch { }
+        }
+
+        static void KillOldBridgeProcesses()
+        {
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = "powershell",
+                    Arguments = "-NoProfile -Command \"Get-NetTCPConnection -LocalPort 6655,6656 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+                Process p = Process.Start(psi);
+                if (p != null) p.WaitForExit(3000);
             }
             catch { }
         }

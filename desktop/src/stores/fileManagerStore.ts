@@ -1,10 +1,12 @@
 import { create } from 'zustand';
-import { FileItem } from '../types/protocol';
+import { FileItem, StorageState } from '../types/protocol';
 
 interface FileManagerState {
   currentPath: string;
   parentPath: string | null;
   entries: FileItem[];
+  storageState: StorageState;
+  storageMessage: string | null;
   history: string[];
   historyIndex: number;
   sortBy: 'name' | 'size' | 'date' | 'type';
@@ -18,7 +20,14 @@ interface FileManagerState {
   isNewFolderModalOpen: boolean;
   isDeleteConfirmOpen: boolean;
 
-  setCurrentDirectory: (path: string, parent: string | null, entries: FileItem[]) => void;
+  setCurrentDirectory: (
+    path: string,
+    parent: string | null,
+    entries: FileItem[],
+    storageState?: StorageState,
+    storageMessage?: string
+  ) => void;
+  setStorageState: (state: StorageState, message?: string | null) => void;
   navigateTo: (path: string) => void;
   navigateBack: () => string | null;
   navigateForward: () => string | null;
@@ -41,6 +50,8 @@ export const useFileManagerStore = create<FileManagerState>((set, get) => ({
   currentPath: DEFAULT_ROOT,
   parentPath: null,
   entries: [],
+  storageState: 'DEVICE_NOT_FOUND',
+  storageMessage: null,
   history: [DEFAULT_ROOT],
   historyIndex: 0,
   sortBy: 'name',
@@ -54,15 +65,20 @@ export const useFileManagerStore = create<FileManagerState>((set, get) => ({
   isNewFolderModalOpen: false,
   isDeleteConfirmOpen: false,
 
-  setCurrentDirectory: (path, parent, entries) =>
+  setCurrentDirectory: (path, parent, entries, storageState = 'READY', storageMessage) =>
     set({
       currentPath: path,
       parentPath: parent,
       entries,
+      storageState,
+      storageMessage: storageMessage || null,
       isLoading: false,
       error: null,
       selectedPaths: [],
     }),
+
+  setStorageState: (storageState, storageMessage = null) =>
+    set({ storageState, storageMessage }),
 
   navigateTo: (path) => {
     const { history, historyIndex } = get();

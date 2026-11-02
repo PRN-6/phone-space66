@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "bridge": "node ../scripts/usb_mtp_bridge.cjs",
+    "diagnostics": "node ../scripts/detect_usb_phone.cjs",
+    "test": "node ../scripts/verify_system.cjs",
     "start:usb": "node ../scripts/usb_mtp_bridge.cjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
