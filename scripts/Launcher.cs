@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Threading;
 using System.Reflection;
+using Microsoft.Win32;
 
 [assembly: AssemblyTitle("PHONE SPACE66")]
 [assembly: AssemblyProduct("PHONE SPACE66 Desktop")]
@@ -33,6 +34,9 @@ namespace PhoneSpace66
 
             // 0. Kill any dangling previous bridge on 6655/6656
             KillOldBridgeProcesses();
+
+            // 0.1 Register AutoPlay Handler for hardware plug-in
+            RegisterAutoPlay();
 
             // 1. Start USB MTP Hardware Bridge
             StartBridge(appDir);
@@ -214,6 +218,42 @@ namespace PhoneSpace66
                 };
                 Process p = Process.Start(psi);
                 if (p != null) p.WaitForExit(3000);
+            }
+            catch { }
+        }
+
+        static void RegisterAutoPlay()
+        {
+            try
+            {
+                string exePath = Process.GetCurrentProcess().MainModule.FileName;
+                using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Classes\PhoneSpace66.AutoPlay\shell\open\command"))
+                {
+                    if (key != null) key.SetValue("", "\"" + exePath + "\"");
+                }
+                using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\Handlers\PhoneSpace66AutoPlay"))
+                {
+                    if (key != null)
+                    {
+                        key.SetValue("Action", "Launch PHONE SPACE66 Desktop");
+                        key.SetValue("Provider", "PHONE SPACE66");
+                        key.SetValue("DefaultIcon", "\"" + exePath + "\",0");
+                        key.SetValue("InvokeProgID", "PhoneSpace66.AutoPlay");
+                        key.SetValue("InvokeVerb", "open");
+                    }
+                }
+                using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\EventHandlers\WPD\DeviceArrival"))
+                {
+                    if (key != null) key.SetValue("PhoneSpace66AutoPlay", "");
+                }
+                using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\EventHandlers\ShowPicturesOnArrival"))
+                {
+                    if (key != null) key.SetValue("PhoneSpace66AutoPlay", "");
+                }
+                using (var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\AutoplayHandlers\UserChosenExecuteHandlers\WPD\DeviceArrival"))
+                {
+                    if (key != null) key.SetValue("", "PhoneSpace66AutoPlay");
+                }
             }
             catch { }
         }

@@ -5,7 +5,7 @@ pub mod protocol;
 use discovery::DiscoveryManager;
 use protocol::DiscoveredDevice;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager, State, Window};
+use tauri::{State, Window};
 
 pub struct AppState {
     pub discovery: Mutex<DiscoveryManager>,

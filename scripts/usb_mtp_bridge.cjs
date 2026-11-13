@@ -525,13 +525,20 @@ function deleteMtpItem(targetPath) {
 // -------------------------------------------------------------
 
 const defaultSystemApps = [
-  { packageName: 'com.android.chrome', appName: 'Google Chrome', versionName: '124.0.6367.82', isSystemApp: true, installedAt: Date.now() - 100 * 86400000 },
+  { packageName: 'com.android.chrome', appName: 'Google Chrome', versionName: '124.0.6367.82', isSystemApp: false, installedAt: Date.now() - 100 * 86400000 },
   { packageName: 'com.google.android.youtube', appName: 'YouTube', versionName: '19.16.39', isSystemApp: false, installedAt: Date.now() - 90 * 86400000 },
   { packageName: 'com.whatsapp', appName: 'WhatsApp', versionName: '2.24.9.78', isSystemApp: false, installedAt: Date.now() - 60 * 86400000 },
   { packageName: 'com.spotify.music', appName: 'Spotify', versionName: '8.9.34', isSystemApp: false, installedAt: Date.now() - 45 * 86400000 },
-  { packageName: 'com.google.android.apps.photos', appName: 'Google Photos', versionName: '6.80', isSystemApp: true, installedAt: Date.now() - 120 * 86400000 },
+  { packageName: 'com.google.android.apps.photos', appName: 'Google Photos', versionName: '6.80', isSystemApp: false, installedAt: Date.now() - 120 * 86400000 },
+  { packageName: 'com.google.android.GoogleCamera', appName: 'Camera', versionName: '9.3', isSystemApp: false, installedAt: Date.now() - 150 * 86400000 },
+  { packageName: 'com.google.android.apps.messaging', appName: 'Messages', versionName: '2024.05', isSystemApp: false, installedAt: Date.now() - 180 * 86400000 },
+  { packageName: 'com.google.android.dialer', appName: 'Phone', versionName: '130.0', isSystemApp: false, installedAt: Date.now() - 200 * 86400000 },
+  { packageName: 'com.google.android.apps.maps', appName: 'Google Maps', versionName: '11.120', isSystemApp: false, installedAt: Date.now() - 140 * 86400000 },
+  { packageName: 'com.google.android.gm', appName: 'Gmail', versionName: '2024.04', isSystemApp: false, installedAt: Date.now() - 200 * 86400000 },
+  { packageName: 'com.google.android.calendar', appName: 'Google Calendar', versionName: '2024.16', isSystemApp: false, installedAt: Date.now() - 220 * 86400000 },
+  { packageName: 'com.google.android.keep', appName: 'Keep Notes', versionName: '5.24', isSystemApp: false, installedAt: Date.now() - 110 * 86400000 },
+  { packageName: 'com.google.android.apps.docs', appName: 'Google Drive', versionName: '2.24', isSystemApp: false, installedAt: Date.now() - 95 * 86400000 },
   { packageName: 'com.android.settings', appName: 'Settings', versionName: '14.0', isSystemApp: true, installedAt: Date.now() - 365 * 86400000 },
-  { packageName: 'com.google.android.gm', appName: 'Gmail', versionName: '2024.04', isSystemApp: true, installedAt: Date.now() - 200 * 86400000 },
 ];
 
 function getInstalledAppsViaAdb() {
@@ -539,19 +546,48 @@ function getInstalledAppsViaAdb() {
   if (!adbBin) return null;
 
   try {
-    const raw = execSync(`"${adbBin}" shell pm list packages -3`, { encoding: 'utf8', timeout: 4000 });
-    const pkgs = raw.split('\n').map((l) => l.trim().replace(/^package:/, '')).filter(Boolean);
-    if (pkgs.length === 0) return null;
+    const raw3 = execSync(`"${adbBin}" shell pm list packages -3`, { encoding: 'utf8', timeout: 4000 });
+    const pkgs3 = raw3.split('\n').map((l) => l.trim().replace(/^package:/, '')).filter(Boolean);
 
-    return pkgs.map((pkg) => {
-      const parts = pkg.split('.');
-      const cleanName = parts[parts.length - 1].charAt(0).toUpperCase() + parts[parts.length - 1].slice(1);
+    let userPkgs = [...pkgs3];
+    if (userPkgs.length === 0) {
+      const rawAll = execSync(`"${adbBin}" shell pm list packages`, { encoding: 'utf8', timeout: 4000 });
+      userPkgs = rawAll.split('\n').map((l) => l.trim().replace(/^package:/, '')).filter((p) =>
+        p.startsWith('com.google.android.') || p.startsWith('com.android.chrome') || p === 'com.whatsapp' || p === 'com.spotify.music'
+      );
+    }
+    if (userPkgs.length === 0) return null;
+
+    const friendlyNames = {
+      'com.google.android.apps.photos': 'Google Photos',
+      'com.google.android.youtube': 'YouTube',
+      'com.android.chrome': 'Google Chrome',
+      'com.whatsapp': 'WhatsApp',
+      'com.spotify.music': 'Spotify',
+      'com.google.android.gm': 'Gmail',
+      'com.google.android.apps.maps': 'Google Maps',
+      'com.google.android.GoogleCamera': 'Camera',
+      'com.google.android.apps.messaging': 'Messages',
+      'com.google.android.dialer': 'Phone',
+      'com.android.settings': 'Settings',
+      'com.google.android.calendar': 'Calendar',
+      'com.google.android.keep': 'Keep Notes',
+      'com.google.android.apps.docs': 'Google Drive',
+    };
+
+    return userPkgs.map((pkg) => {
+      let cleanName = friendlyNames[pkg];
+      if (!cleanName) {
+        const parts = pkg.split('.');
+        const last = parts[parts.length - 1];
+        cleanName = last.charAt(0).toUpperCase() + last.slice(1);
+      }
       return {
         packageName: pkg,
         appName: cleanName,
         versionName: '1.0',
         versionCode: 1,
-        isSystemApp: false,
+        isSystemApp: pkg.startsWith('com.android.') && pkg !== 'com.android.chrome',
         installedAt: Date.now(),
       };
     });
@@ -1273,35 +1309,73 @@ function dispatchMessage(socket, msg) {
 
 let lastKnownDeviceState = null;
 let lastKnownMtpStatus = null;
+let autoLaunchCooldown = 0;
+
+function launchDesktopUi() {
+  try {
+    const edgePaths = [
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    ];
+    const edge = edgePaths.find((p) => fs.existsSync(p));
+    const url = 'http://localhost:1420';
+    if (edge) {
+      const { spawn } = require('child_process');
+      const dataDir = path.join(process.env.LOCALAPPDATA || 'C:\\Temp', 'PhoneSpace66', 'AppData');
+      spawn(edge, [`--app=${url}`, '--window-size=1440,900', `--user-data-dir=${dataDir}`], {
+        detached: true,
+        stdio: 'ignore',
+      }).unref();
+    } else {
+      const { exec } = require('child_process');
+      exec(`start "" "${url}"`);
+    }
+  } catch (err) {
+    console.error('[BRIDGE] Failed to launch desktop UI:', err.message);
+  }
+}
 
 setInterval(() => {
-  if (activeSockets.size === 0) return;
-
   const pnp = detectPnpDevices();
   const currentConnected = pnp.some((d) => d.isConnected);
 
-  if (lastKnownDeviceState !== null && lastKnownDeviceState !== currentConnected) {
-    if (currentConnected) {
-      const active = pnp.find((d) => d.isConnected);
-      console.log(`[BRIDGE] Android device attached: ${active?.name}`);
-      broadcastWs('DEVICE_ATTACHED', { device: active });
-    } else {
-      console.log('[BRIDGE] Android device disconnected.');
-      broadcastWs('DEVICE_DISCONNECTED', { timestamp: Date.now() });
-    }
-  }
-  lastKnownDeviceState = currentConnected;
-
-  // Poll MTP unlock event
-  if (currentConnected) {
-    const mtp = queryPhoneMtp();
-    if (lastKnownMtpStatus !== null && lastKnownMtpStatus !== mtp.status) {
-      if (mtp.status === 'READY') {
-        console.log('[BRIDGE] MTP storage unlocked by user on phone.');
-        broadcastWs('STORAGE_UNLOCKED', { deviceName: mtp.deviceName });
+  if (activeSockets.size > 0) {
+    if (lastKnownDeviceState !== null && lastKnownDeviceState !== currentConnected) {
+      if (currentConnected) {
+        const active = pnp.find((d) => d.isConnected);
+        console.log(`[BRIDGE] Android device attached: ${active?.name}`);
+        broadcastWs('DEVICE_ATTACHED', { device: active });
+      } else {
+        console.log('[BRIDGE] Android device disconnected.');
+        broadcastWs('DEVICE_DISCONNECTED', { timestamp: Date.now() });
       }
     }
-    lastKnownMtpStatus = mtp.status;
+    lastKnownDeviceState = currentConnected;
+
+    // Poll MTP unlock event
+    if (currentConnected) {
+      const mtp = queryPhoneMtp();
+      if (lastKnownMtpStatus !== null && lastKnownMtpStatus !== mtp.status) {
+        if (mtp.status === 'READY') {
+          console.log('[BRIDGE] MTP storage unlocked by user on phone.');
+          broadcastWs('STORAGE_UNLOCKED', { deviceName: mtp.deviceName });
+        }
+      }
+      lastKnownMtpStatus = mtp.status;
+    }
+  } else {
+    // When no UI is connected yet, auto-launch the desktop environment when an Android device with storage is ready
+    if (currentConnected) {
+      const now = Date.now();
+      if (now - autoLaunchCooldown > 10000) {
+        const mtp = queryPhoneMtp();
+        if (mtp.status === 'READY') {
+          console.log(`[BRIDGE] Phone connected with unlocked storage (${mtp.deviceName}). Auto-launching desktop environment...`);
+          autoLaunchCooldown = now;
+          launchDesktopUi();
+        }
+      }
+    }
   }
 }, 2500);
 
