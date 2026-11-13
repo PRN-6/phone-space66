@@ -125,7 +125,19 @@ export const DeviceDashboardWindow: React.FC = () => {
             type="button"
             onClick={async () => {
               const { discoveryService } = await import('../../services/discoveryService');
-              discoveryService.probeAddress('127.0.0.1', 6655);
+              const { webSocketService } = await import('../../services/webSocketService');
+              await discoveryService.probeAddress('127.0.0.1', 6655);
+              const dev = {
+                id: '127.0.0.1:6655',
+                name: 'Pixel 10a (USB Wire)',
+                model: 'Pixel 10a',
+                manufacturer: 'Google',
+                ipAddress: '127.0.0.1',
+                port: 6655,
+                protocolVersion: 1,
+                lastSeen: Date.now(),
+              };
+              webSocketService.connect(dev);
             }}
             className="px-3.5 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 text-white border border-white/20 hover:border-white/40 text-xs font-mono transition-colors whitespace-nowrap shadow-sm flex items-center space-x-1.5"
           >

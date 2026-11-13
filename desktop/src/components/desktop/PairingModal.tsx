@@ -24,13 +24,15 @@ export const PairingModal: React.FC = () => {
     error,
     manualIp,
     setManualIp,
+    isConnected,
   } = useConnectionStore();
 
   const [pinInput, setPinInput] = useState('');
 
-  if (!showPairingModal) return null;
+  if (!showPairingModal || isConnected) return null;
 
   const handleConnect = (device: DiscoveredDevice) => {
+    setShowPairingModal(false);
     webSocketService.connect(device);
   };
 
@@ -169,7 +171,22 @@ export const PairingModal: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => discoveryService.probeAddress('127.0.0.1', 6655)}
+                    onClick={() => {
+                      setShowPairingModal(false);
+                      discoveryService.probeAddress('127.0.0.1', 6655).then(() => {
+                        const dev = discoveredDevices.find((d) => d.ipAddress === '127.0.0.1') || {
+                          id: '127.0.0.1:6655',
+                          name: 'Android Phone (USB Wire)',
+                          model: 'Android Device',
+                          manufacturer: 'Android',
+                          ipAddress: '127.0.0.1',
+                          port: 6655,
+                          protocolVersion: 1,
+                          lastSeen: Date.now(),
+                        };
+                        webSocketService.connect(dev);
+                      });
+                    }}
                     className="px-3.5 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-750 border border-white/20 text-silver-100 text-xs font-semibold flex items-center space-x-1.5 transition-all"
                   >
                     <Zap className="w-3.5 h-3.5 text-silver-300" />

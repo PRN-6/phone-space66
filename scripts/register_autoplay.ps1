@@ -61,3 +61,4 @@ New-Item -Path $userChoiceKey -Force | Out-Null
 Set-ItemProperty -Path $userChoiceKey -Name "(Default)" -Value "PhoneSpace66AutoPlay" -Force
 
 Write-Host "[PHONE SPACE66] AutoPlay registration successful! PHONE SPACE66 will now trigger automatically when an Android phone is connected." -ForegroundColor Green
+

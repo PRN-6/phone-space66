@@ -95,7 +95,26 @@ export const TopStatusBar: React.FC = () => {
           </button>
         ) : (
           <button
-            onClick={() => openWindow('dashboard')}
+            onClick={async () => {
+              const { discoveryService } = await import('../../services/discoveryService');
+              const { webSocketService } = await import('../../services/webSocketService');
+              const ok = await discoveryService.probeAddress('127.0.0.1', 6655);
+              if (ok) {
+                const dev = {
+                  id: '127.0.0.1:6655',
+                  name: 'Pixel 10a (USB Wire)',
+                  model: 'Pixel 10a',
+                  manufacturer: 'Google',
+                  ipAddress: '127.0.0.1',
+                  port: 6655,
+                  protocolVersion: 1,
+                  lastSeen: Date.now(),
+                };
+                webSocketService.connect(dev);
+              } else {
+                openWindow('dashboard');
+              }
+            }}
             className={`flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full border text-xs transition-all flex-shrink-0 whitespace-nowrap ${
               status === 'awaiting_usb_mode' || status === 'awaiting_phone_unlock'
                 ? 'bg-charcoal-800 border-white/30 text-silver-100 animate-pulse'

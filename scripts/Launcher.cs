@@ -61,9 +61,20 @@ namespace PhoneSpace66
                 string bridgeScript = Path.Combine(appDir, "scripts", "usb_mtp_bridge.cjs");
                 if (File.Exists(bridgeScript))
                 {
+                    string nodeExe = "node";
+                    string[] candidates = new string[] {
+                        @"C:\Program Files\nodejs\node.exe",
+                        @"C:\Program Files (x86)\nodejs\node.exe",
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\node\node.exe")
+                    };
+                    foreach (var c in candidates)
+                    {
+                        if (File.Exists(c)) { nodeExe = c; break; }
+                    }
+
                     ProcessStartInfo psi = new ProcessStartInfo
                     {
-                        FileName = "node",
+                        FileName = nodeExe,
                         Arguments = "\"" + bridgeScript + "\"",
                         UseShellExecute = false,
                         CreateNoWindow = true,

@@ -43,6 +43,7 @@ class WebSocketService {
         if (token) {
           // If we already have a saved pairing token, test authentication with DEVICE_INFO_REQUEST
           useConnectionStore.getState().setStatus('connected');
+          useConnectionStore.getState().setShowPairingModal(false);
           this.startHeartbeat();
           this.requestDeviceInfo();
           import('./fileTransferService').then(({ fileTransferService }) => {
@@ -50,6 +51,16 @@ class WebSocketService {
           });
           import('./galleryService').then(({ galleryService }) => {
             galleryService.fetchGallery('all');
+          });
+          import('./appService').then(({ appService }) => {
+            appService.refreshApps();
+          });
+          import('../stores/windowStore').then(({ useWindowStore }) => {
+            const { windows, openWindow } = useWindowStore.getState();
+            const hasOpen = windows.some((w) => !w.isMinimized);
+            if (!hasOpen) {
+              openWindow('file-manager');
+            }
           });
         } else {
           // Need pairing: initiate PAIR_REQUEST
@@ -121,6 +132,13 @@ class WebSocketService {
         import('./mediaService').then(({ mediaService }) => {
           mediaService.refreshPlaybackState();
         });
+        import('../stores/windowStore').then(({ useWindowStore }) => {
+          const { windows, openWindow } = useWindowStore.getState();
+          const hasOpen = windows.some((w) => !w.isMinimized);
+          if (!hasOpen) {
+            openWindow('file-manager');
+          }
+        });
         break;
       }
 
@@ -159,6 +177,14 @@ class WebSocketService {
               'connected',
               `${telemetry.device.model} connected and ready.`
             );
+            useConnectionStore.getState().setShowPairingModal(false);
+            import('../stores/windowStore').then(({ useWindowStore }) => {
+              const { windows, openWindow } = useWindowStore.getState();
+              const hasOpen = windows.some((w) => !w.isMinimized);
+              if (!hasOpen) {
+                openWindow('file-manager');
+              }
+            });
           }
         }
         break;
@@ -174,9 +200,23 @@ class WebSocketService {
       case 'STORAGE_UNLOCKED': {
         console.log('[WS] MTP storage unlocked by user on phone.');
         useConnectionStore.getState().setStatus('connected', 'Phone storage unlocked and active.');
+        useConnectionStore.getState().setShowPairingModal(false);
         this.requestDeviceInfo();
         import('./fileTransferService').then(({ fileTransferService }) => {
           fileTransferService.fetchDirectory('/storage/emulated/0');
+        });
+        import('./galleryService').then(({ galleryService }) => {
+          galleryService.fetchGallery('all');
+        });
+        import('./appService').then(({ appService }) => {
+          appService.refreshApps();
+        });
+        import('../stores/windowStore').then(({ useWindowStore }) => {
+          const { windows, openWindow } = useWindowStore.getState();
+          const hasOpen = windows.some((w) => !w.isMinimized);
+          if (!hasOpen) {
+            openWindow('file-manager');
+          }
         });
         break;
       }
