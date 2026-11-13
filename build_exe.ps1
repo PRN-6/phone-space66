@@ -21,9 +21,16 @@ $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 Write-Host "3. Compiling PHONE SPACE66 Setup.exe (Windows Installer)..." -ForegroundColor Green
 & $csc /target:winexe /r:System.Windows.Forms.dll /win32icon:"$root\desktop\src-tauri\icons\icon.ico" /out:"$root\PHONE SPACE66 Setup.exe" "$root\scripts\Installer.cs"
 
+# 4. Copy High-Performance Rust Engine
+$rustExe = "$root\desktop\src-tauri\target\debug\phonespace66.exe"
+if (Test-Path $rustExe) {
+    Write-Host "4. Updating PHONE SPACE66 (Rust Engine).exe..." -ForegroundColor Green
+    Copy-Item -Path $rustExe -Destination "$root\PHONE SPACE66 (Rust Engine).exe" -Force
+}
+
 Write-Host "================================================================" -ForegroundColor Cyan
 Write-Host "SUCCESS! Windows Executables Created:" -ForegroundColor Green
-Get-Item "$root\PHONE SPACE66.exe", "$root\PHONE SPACE66 Setup.exe" | Format-Table Name, Length, LastWriteTime
-Write-Host "You can now double-click 'PHONE SPACE66.exe' to launch the app!" -ForegroundColor Yellow
+Get-Item "$root\PHONE SPACE66.exe", "$root\PHONE SPACE66 Setup.exe", "$root\PHONE SPACE66 (Rust Engine).exe" | Format-Table Name, Length, LastWriteTime
+Write-Host "You can now double-click 'PHONE SPACE66.exe' or 'PHONE SPACE66 (Rust Engine).exe' to launch the app!" -ForegroundColor Yellow
 Write-Host "================================================================" -ForegroundColor Cyan
 
