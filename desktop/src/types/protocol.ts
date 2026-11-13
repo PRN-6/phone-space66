@@ -431,6 +431,8 @@ export interface GalleryItem {
   durationMs?: number;
   thumbnailUrl: string;
   downloadUrl: string;
+  albumName?: string;
+  isVideo?: boolean;
 }
 
 export interface GalleryListRequestPayload {

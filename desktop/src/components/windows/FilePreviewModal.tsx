@@ -12,6 +12,7 @@ import {
   HardDrive,
   Calendar,
   Shield,
+  RotateCw,
 } from 'lucide-react';
 import { FileItem, DEFAULT_HTTP_PORT } from '../../types/protocol';
 import { useFileManagerStore } from '../../stores/fileManagerStore';
@@ -35,20 +36,50 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClos
     return `${(bytes / 1048576).toFixed(2)} MB`;
   };
 
+  const isVideo =
+    file.mimeType?.startsWith('video/') ||
+    /\.(mp4|mov|mkv|m4v|webm)$/i.test(file.name) ||
+    file.extension?.toLowerCase() === 'mp4';
+
+  const isAudio =
+    file.mimeType?.startsWith('audio/') ||
+    /\.(mp3|m4a|flac|wav|aac|ogg)$/i.test(file.name) ||
+    file.extension?.toLowerCase() === 'mp3';
+
   const isImage =
-    file.mimeType.startsWith('image/') ||
-    ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'svg'].includes(file.extension?.toLowerCase()) ||
-    /\.(jpg|jpeg|png|webp|gif|bmp|svg|raw|dng)$/i.test(file.name) ||
-    file.name.toUpperCase().startsWith('PXL_') ||
-    file.name.toUpperCase().startsWith('IMG_') ||
-    file.path.toLowerCase().includes('/dcim/') ||
-    file.path.toLowerCase().includes('/pictures/');
+    !isVideo &&
+    !isAudio &&
+    (file.mimeType?.startsWith('image/') ||
+      ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'svg', 'dng', 'raw'].includes(
+        file.extension?.toLowerCase() || ''
+      ) ||
+      /\.(jpg|jpeg|png|webp|gif|bmp|svg|raw|dng)$/i.test(file.name) ||
+      file.name.toUpperCase().startsWith('PXL_') ||
+      file.name.toUpperCase().startsWith('IMG_') ||
+      file.path.toLowerCase().includes('/dcim/') ||
+      file.path.toLowerCase().includes('/pictures/'));
 
-  const isVideo = file.mimeType.startsWith('video/') || /\.(mp4|mov|mkv|m4v|webm)$/i.test(file.name);
-  const isAudio = file.mimeType.startsWith('audio/') || /\.(mp3|m4a|flac|wav|aac)$/i.test(file.name);
-  const isText = file.mimeType.startsWith('text/') || ['txt', 'log', 'md', 'json', 'xml'].includes(file.extension);
+  const isText =
+    !isVideo &&
+    !isAudio &&
+    !isImage &&
+    (file.mimeType?.startsWith('text/') || ['txt', 'log', 'md', 'json', 'xml'].includes(file.extension));
 
-  const downloadUrl = fileTransferService.getDownloadUrl(file.path);
+  const [downloadUrl, setDownloadUrl] = useState(() => fileTransferService.getDownloadUrl(file.path));
+  const [imageLoading, setImageLoading] = useState(true);
+
+  useEffect(() => {
+    setImageError(false);
+    setImageLoading(true);
+    setDownloadUrl(fileTransferService.getDownloadUrl(file.path));
+  }, [file.path]);
+
+  const handleRetryImage = () => {
+    setImageError(false);
+    setImageLoading(true);
+    const base = fileTransferService.getDownloadUrl(file.path);
+    setDownloadUrl(`${base}&retry=${Date.now()}`);
+  };
 
   useEffect(() => {
     if (isText && downloadUrl) {
@@ -108,26 +139,62 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClos
           {/* Preview Canvas */}
           <div className="h-72 bg-charcoal-950 flex items-center justify-center overflow-auto p-4 border-b border-white/5">
             {isImage && downloadUrl && !imageError ? (
-              <img
-                src={downloadUrl}
-                alt={file.name}
-                onError={() => setImageError(true)}
-                className="max-h-full max-w-full object-contain rounded-lg border border-white/10"
-              />
+              <div className="relative w-full h-full flex items-center justify-center">
+                {imageLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center text-xs text-silver-400 font-mono">
+                    <RotateCw className="w-5 h-5 animate-spin mr-2" />
+                    <span>Loading preview...</span>
+                  </div>
+                )}
+                <img
+                  src={downloadUrl}
+                  alt={file.name}
+                  onLoad={() => setImageLoading(false)}
+                  onError={() => {
+                    setImageLoading(false);
+                    setImageError(true);
+                  }}
+                  className={`max-h-full max-w-full object-contain rounded-lg border border-white/10 transition-opacity duration-200 ${
+                    imageLoading ? 'opacity-0' : 'opacity-100'
+                  }`}
+                />
+              </div>
             ) : isImage && imageError ? (
-              <div className="text-center p-6">
-                <ImageIcon className="w-16 h-16 text-silver-400 mx-auto mb-2 opacity-50" />
-                <div className="text-xs font-semibold text-silver-200">Camera Image / RAW Preview</div>
-                <div className="text-[11px] text-silver-400 mt-1 max-w-xs">
-                  This photo format requires full local rendering. Click Download to save directly to your PC.
+              <div className="text-center p-6 space-y-3">
+                <ImageIcon className="w-16 h-16 text-silver-400 mx-auto opacity-50" />
+                <div className="text-xs font-semibold text-silver-200">{file.name}</div>
+                <div className="text-[11px] text-silver-400 max-w-xs mx-auto">
+                  Phone storage preview busy. You can retry the live preview or download directly to your PC.
                 </div>
-                <button
-                  onClick={() => fileTransferService.downloadFile(file)}
-                  className="mt-4 px-4 py-1.5 rounded-lg bg-silver-100 hover:bg-white text-charcoal-950 font-semibold text-xs inline-flex items-center space-x-1.5 shadow"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Photo</span>
-                </button>
+                <div className="flex items-center justify-center space-x-2 pt-2">
+                  <button
+                    onClick={handleRetryImage}
+                    className="px-3 py-1.5 rounded-lg bg-charcoal-750 hover:bg-charcoal-700 text-silver-200 font-medium text-xs inline-flex items-center space-x-1.5 border border-white/10 transition-colors"
+                  >
+                    <RotateCw className="w-3.5 h-3.5" />
+                    <span>Retry</span>
+                  </button>
+                  <button
+                    onClick={() => fileTransferService.downloadFile(file)}
+                    className="px-4 py-1.5 rounded-lg bg-silver-100 hover:bg-white text-charcoal-950 font-semibold text-xs inline-flex items-center space-x-1.5 shadow transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Photo</span>
+                  </button>
+                </div>
+              </div>
+            ) : isVideo && downloadUrl ? (
+              <video
+                src={downloadUrl}
+                controls
+                autoPlay
+                className="max-h-full max-w-full rounded-lg shadow-lg border border-white/10"
+              />
+            ) : isAudio && downloadUrl ? (
+              <div className="flex flex-col items-center justify-center p-6 space-y-4">
+                <Music className="w-14 h-14 text-silver-300 animate-pulse" />
+                <div className="text-xs font-semibold text-silver-200 text-center truncate max-w-xs">{file.name}</div>
+                <audio src={downloadUrl} controls className="w-72 mt-2" />
               </div>
             ) : isText ? (
               isLoadingContent ? (
@@ -138,12 +205,19 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClos
                 </pre>
               )
             ) : (
-              <div className="text-center">
-                <FileCode className="w-16 h-16 text-silver-500 mx-auto mb-2" />
-                <div className="text-xs font-medium text-silver-300">{file.mimeType}</div>
-                <div className="text-[11px] text-silver-500 mt-1">
-                  Preview not directly renderable. Click Download to open locally.
+              <div className="text-center space-y-3">
+                <FileCode className="w-14 h-14 text-silver-500 mx-auto" />
+                <div>
+                  <div className="text-xs font-medium text-silver-300">{file.name}</div>
+                  <div className="text-[11px] text-silver-500 mt-1">{file.mimeType || 'Binary File'}</div>
                 </div>
+                <button
+                  onClick={() => fileTransferService.downloadFile(file)}
+                  className="px-4 py-1.5 rounded-lg bg-silver-100 hover:bg-white text-charcoal-950 font-semibold text-xs inline-flex items-center space-x-1.5 shadow transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download File</span>
+                </button>
               </div>
             )}
           </div>

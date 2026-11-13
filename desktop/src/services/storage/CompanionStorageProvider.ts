@@ -11,7 +11,7 @@ export class CompanionStorageProvider implements IStorageProvider {
 
   isAvailable(): boolean {
     const isConn = useConnectionStore.getState().isConnected;
-    const isCompanion = useConnectionStore.getState().activeTransport === 'companion' || useConnectionStore.getState().connectionMode === 'lan';
+    const isCompanion = useConnectionStore.getState().activeTransport === 'companion';
     return isConn && isCompanion && webSocketService.isOpen();
   }
 
@@ -38,10 +38,15 @@ export class CompanionStorageProvider implements IStorageProvider {
     webSocketService.send('STORAGE_LIST_REQUEST', payload);
 
     return new Promise((resolve) => {
+      let timeoutId: NodeJS.Timeout | number;
+      const socket = (webSocketService as unknown as { ws?: WebSocket }).ws;
+
       const handler = (event: MessageEvent) => {
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'STORAGE_LIST_RESPONSE') {
+            clearTimeout(timeoutId);
+            socket?.removeEventListener('message', handler);
             resolve({
               currentPath: msg.payload.currentPath,
               parentPath: msg.payload.parentPath,
@@ -52,10 +57,9 @@ export class CompanionStorageProvider implements IStorageProvider {
         } catch {}
       };
 
-      const socket = (webSocketService as unknown as { ws?: WebSocket }).ws;
       if (socket) {
-        socket.addEventListener('message', handler, { once: true });
-        setTimeout(() => {
+        socket.addEventListener('message', handler);
+        timeoutId = setTimeout(() => {
           socket.removeEventListener('message', handler);
           resolve({
             currentPath: path,
@@ -64,7 +68,7 @@ export class CompanionStorageProvider implements IStorageProvider {
             storageState: 'MTP_DEVICE_BUSY',
             message: 'Companion storage request timed out.',
           });
-        }, 8000);
+        }, 12000);
       }
     });
   }
@@ -99,10 +103,10 @@ export class CompanionStorageProvider implements IStorageProvider {
   }
 
   getDownloadUrl(filePath: string): string {
-    const targetIp = useConnectionStore.getState().targetIp;
+    const targetIp = useConnectionStore.getState().targetIp || '127.0.0.1';
     const port = useConnectionStore.getState().targetHttpPort || 6656;
     const token = useConnectionStore.getState().authToken || '';
-    return `http://${targetIp}:${port}/files/download?path=${encodeURIComponent(filePath)}&token=${encodeURIComponent(token)}`;
+    return `http://${targetIp}:${port}/download?path=${encodeURIComponent(filePath)}&token=${encodeURIComponent(token)}`;
   }
 
   async uploadFile(

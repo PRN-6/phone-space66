@@ -28,10 +28,15 @@ export class AdbStorageProvider implements IStorageProvider {
     webSocketService.send('STORAGE_LIST_REQUEST', { path });
 
     return new Promise((resolve) => {
+      let timeoutId: NodeJS.Timeout | number;
+      const socket = (webSocketService as unknown as { ws?: WebSocket }).ws;
+
       const handler = (event: MessageEvent) => {
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'STORAGE_LIST_RESPONSE') {
+            clearTimeout(timeoutId);
+            socket?.removeEventListener('message', handler);
             resolve({
               currentPath: msg.payload.currentPath,
               parentPath: msg.payload.parentPath,
@@ -43,10 +48,9 @@ export class AdbStorageProvider implements IStorageProvider {
         } catch {}
       };
 
-      const socket = (webSocketService as unknown as { ws?: WebSocket }).ws;
       if (socket) {
-        socket.addEventListener('message', handler, { once: true });
-        setTimeout(() => {
+        socket.addEventListener('message', handler);
+        timeoutId = setTimeout(() => {
           socket.removeEventListener('message', handler);
           resolve({
             currentPath: path,
@@ -55,7 +59,7 @@ export class AdbStorageProvider implements IStorageProvider {
             storageState: 'MTP_DEVICE_BUSY',
             message: 'ADB query timed out.',
           });
-        }, 8000);
+        }, 12000);
       }
     });
   }

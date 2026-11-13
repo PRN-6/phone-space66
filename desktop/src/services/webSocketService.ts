@@ -173,11 +173,16 @@ class WebSocketService {
               'Please approve USB debugging authorization prompt on your phone.'
             );
           } else if (transports.mtp === 'READY') {
-            useConnectionStore.getState().setStatus(
+            const connStore = useConnectionStore.getState();
+            connStore.setConnectionMode('usb');
+            connStore.setActiveTransport('mtp');
+            connStore.targetIp = '127.0.0.1';
+            connStore.targetHttpPort = 6656;
+            connStore.setStatus(
               'connected',
               `${telemetry.device.model} connected and ready.`
             );
-            useConnectionStore.getState().setShowPairingModal(false);
+            connStore.setShowPairingModal(false);
             import('../stores/windowStore').then(({ useWindowStore }) => {
               const { windows, openWindow } = useWindowStore.getState();
               const hasOpen = windows.some((w) => !w.isMinimized);
@@ -199,8 +204,13 @@ class WebSocketService {
 
       case 'STORAGE_UNLOCKED': {
         console.log('[WS] MTP storage unlocked by user on phone.');
-        useConnectionStore.getState().setStatus('connected', 'Phone storage unlocked and active.');
-        useConnectionStore.getState().setShowPairingModal(false);
+        const connStore = useConnectionStore.getState();
+        connStore.setConnectionMode('usb');
+        connStore.setActiveTransport('mtp');
+        connStore.targetIp = '127.0.0.1';
+        connStore.targetHttpPort = 6656;
+        connStore.setStatus('connected', 'Phone storage unlocked and active.');
+        connStore.setShowPairingModal(false);
         this.requestDeviceInfo();
         import('./fileTransferService').then(({ fileTransferService }) => {
           fileTransferService.fetchDirectory('/storage/emulated/0');

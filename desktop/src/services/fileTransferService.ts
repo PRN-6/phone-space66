@@ -27,7 +27,11 @@ class FileTransferService {
       return this.mockProvider;
     }
 
-    if (connMode === 'lan' || activeTransport === 'companion') {
+    if (activeTransport === 'mtp' || connMode === 'usb') {
+      return this.mtpProvider;
+    }
+
+    if (activeTransport === 'companion') {
       if (this.companionProvider.isAvailable()) {
         return this.companionProvider;
       }

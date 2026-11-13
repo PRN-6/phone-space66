@@ -320,8 +320,168 @@ function queryPhoneMtp(subPath = '') {
   }
 }
 
-// Extract a file from phone storage to temp folder for download / preview
+// -------------------------------------------------------------
+// Section 3: MTP File Extraction & Upload Engine
+// -------------------------------------------------------------
+
+const MTP_CACHE_DIR = path.join(os.tmpdir(), 'phonespace66_cache');
+try { fs.mkdirSync(MTP_CACHE_DIR, { recursive: true }); } catch {}
+
+const inFlightExtractions = new Map();
+
+function getCachedMtpFile(remoteFilePath) {
+  const norm = remoteFilePath.replace(/\\/g, '/');
+  const fileName = norm.split('/').pop();
+  const hash = crypto.createHash('md5').update(norm).digest('hex').slice(0, 10);
+  const cacheFile = path.join(MTP_CACHE_DIR, `${hash}_${fileName}`);
+  if (fs.existsSync(cacheFile)) {
+    try {
+      const stats = fs.statSync(cacheFile);
+      if (stats.size > 0) return cacheFile;
+    } catch {}
+  }
+  return null;
+}
+
+// Asynchronously extract a file from phone storage to temp/cache folder for download / preview
+function extractMtpFileAsync(remoteFilePath) {
+  const cached = getCachedMtpFile(remoteFilePath);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
+
+  // Deduplicate concurrent requests for the exact same remote file
+  const normKey = remoteFilePath.replace(/\\/g, '/');
+  if (inFlightExtractions.has(normKey)) {
+    return inFlightExtractions.get(normKey);
+  }
+
+  const promise = new Promise((resolve) => {
+    const norm = remoteFilePath.replace(/\\/g, '/');
+    const fileName = norm.split('/').pop();
+    const dirPart = norm.substring(0, norm.lastIndexOf('/'));
+    const cleanSub = dirPart.replace(/^\/storage\/emulated\/0\/?/, '').replace(/^\/+|\/+$/g, '');
+
+    const reqId = `dl_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const tempDir = path.join(os.tmpdir(), 'phonespace66_downloads', reqId);
+    fs.mkdirSync(tempDir, { recursive: true });
+
+    const ps = `
+      $shell = New-Object -ComObject Shell.Application
+      $drives = $shell.Namespace(17)
+      $phone = $null
+      foreach ($i in $drives.Items()) {
+        if ($i.Type -match 'Mobile|Portable|Phone' -or $i.Name -match 'realme|Galaxy|Pixel|OnePlus|Xiaomi|Redmi|Android|OPPO|vivo|Motorola') {
+          $phone = $i
+          break
+        }
+      }
+      if (-not $phone) { exit 1 }
+      $root = $phone.GetFolder.Items() | Select-Object -First 1
+      if (-not $root) { exit 1 }
+      $targetFolder = $root.GetFolder
+
+      $subPath = "${cleanSub}".Trim('/')
+      if ($subPath) {
+        foreach ($p in ($subPath -split '/')) {
+          $next = $null
+          foreach ($sub in $targetFolder.Items()) {
+            if ($sub.Name -eq $p) {
+              $next = $sub.GetFolder
+              break
+            }
+          }
+          if ($next) { $targetFolder = $next }
+        }
+      }
+
+      $targetName = "${fileName}"
+      $targetBase = [System.IO.Path]::GetFileNameWithoutExtension($targetName)
+      $fileItem = $null
+      foreach ($f in $targetFolder.Items()) {
+        $fName = $f.Name
+        $fReal = $f.ExtendedProperty('System.FileName')
+        $fBase = [System.IO.Path]::GetFileNameWithoutExtension($fName)
+        if ($fName -eq $targetName -or $fReal -eq $targetName -or $fBase -eq $targetBase -or $fBase -eq $targetName -or $fName.StartsWith($targetBase)) {
+          $fileItem = $f
+          break
+        }
+      }
+
+      if (-not $fileItem) { exit 2 }
+
+      # Open destination folder safely using single-quoted raw string
+      $destPath = '${tempDir}'
+      $destFolder = $shell.Namespace($destPath)
+      if (-not $destFolder) { exit 4 }
+
+      $destFolder.CopyHere($fileItem, 16)
+
+      # Wait for the file to finish copying into the clean directory
+      $copiedFile = $null
+      for ($w = 0; $w -lt 60; $w++) {
+        Start-Sleep -Milliseconds 250
+        $files = Get-ChildItem -Path $destPath -File
+        if ($files.Count -gt 0) {
+          $found = $files[0]
+          $s1 = $found.Length
+          Start-Sleep -Milliseconds 200
+          $s2 = (Get-Item $found.FullName).Length
+          if ($s1 -eq $s2 -and $s1 -gt 0) {
+            $copiedFile = $found.FullName
+            break
+          }
+        }
+      }
+
+      if ($copiedFile) {
+        Write-Output $copiedFile
+      } else {
+        exit 3
+      }
+    `;
+
+    const scriptPath = path.join(os.tmpdir(), `phonespace66_copy_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.ps1`);
+    fs.writeFileSync(scriptPath, ps, 'utf8');
+
+    const { execFile } = require('child_process');
+    execFile(
+      'powershell',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', scriptPath],
+      { timeout: 35000, encoding: 'utf8' },
+      (err, stdout) => {
+        try { fs.unlinkSync(scriptPath); } catch {}
+        if (!err && stdout) {
+          const finalCopied = stdout.trim().split(/\r?\n/).pop().trim();
+          if (finalCopied && fs.existsSync(finalCopied)) {
+            // Also store into persistent cache for instant future hits
+            const hash = crypto.createHash('md5').update(normKey).digest('hex').slice(0, 10);
+            const cacheFile = path.join(MTP_CACHE_DIR, `${hash}_${fileName}`);
+            try {
+              fs.copyFileSync(finalCopied, cacheFile);
+              resolve(cacheFile);
+              return;
+            } catch {
+              resolve(finalCopied);
+              return;
+            }
+          }
+        }
+        resolve(null);
+      }
+    );
+  });
+
+  inFlightExtractions.set(normKey, promise);
+  promise.finally(() => inFlightExtractions.delete(normKey));
+  return promise;
+}
+
+// Synchronous wrapper for callers needing sync extraction
 function extractMtpFile(remoteFilePath) {
+  const cached = getCachedMtpFile(remoteFilePath);
+  if (cached) return cached;
+
   const norm = remoteFilePath.replace(/\\/g, '/');
   const fileName = norm.split('/').pop();
   const dirPart = norm.substring(0, norm.lastIndexOf('/'));
@@ -349,12 +509,14 @@ function extractMtpFile(remoteFilePath) {
     $subPath = "${cleanSub}".Trim('/')
     if ($subPath) {
       foreach ($p in ($subPath -split '/')) {
+        $next = $null
         foreach ($sub in $targetFolder.Items()) {
           if ($sub.Name -eq $p) {
-            $targetFolder = $sub.GetFolder
+            $next = $sub.GetFolder
             break
           }
         }
+        if ($next) { $targetFolder = $next }
       }
     }
 
@@ -365,7 +527,7 @@ function extractMtpFile(remoteFilePath) {
       $fName = $f.Name
       $fReal = $f.ExtendedProperty('System.FileName')
       $fBase = [System.IO.Path]::GetFileNameWithoutExtension($fName)
-      if ($fName -eq $targetName -or $fReal -eq $targetName -or $fBase -eq $targetBase -or $fBase -eq $targetName) {
+      if ($fName -eq $targetName -or $fReal -eq $targetName -or $fBase -eq $targetBase -or $fBase -eq $targetName -or $fName.StartsWith($targetBase)) {
         $fileItem = $f
         break
       }
@@ -373,20 +535,22 @@ function extractMtpFile(remoteFilePath) {
 
     if (-not $fileItem) { exit 2 }
 
-    $destFolder = $shell.Namespace("${tempDir.replace(/\\/g, '\\\\')}")
+    $destPath = '${tempDir}'
+    $destFolder = $shell.Namespace($destPath)
+    if (-not $destFolder) { exit 4 }
+
     $destFolder.CopyHere($fileItem, 16)
 
-    # Wait for the file to finish copying into the clean directory
     $copiedFile = $null
     for ($w = 0; $w -lt 60; $w++) {
       Start-Sleep -Milliseconds 250
-      $files = Get-ChildItem -Path "${tempDir.replace(/\\/g, '\\\\')}" -File
+      $files = Get-ChildItem -Path $destPath -File
       if ($files.Count -gt 0) {
         $found = $files[0]
         $s1 = $found.Length
         Start-Sleep -Milliseconds 200
         $s2 = (Get-Item $found.FullName).Length
-        if ($s1 -eq $s2) {
+        if ($s1 -eq $s2 -and $s1 -gt 0) {
           $copiedFile = $found.FullName
           break
         }
@@ -410,7 +574,9 @@ function extractMtpFile(remoteFilePath) {
     }).trim();
     const finalCopied = rawOut.split(/\r?\n/).pop().trim();
     if (finalCopied && fs.existsSync(finalCopied)) {
-      return finalCopied;
+      const hash = crypto.createHash('md5').update(norm).digest('hex').slice(0, 10);
+      const cacheFile = path.join(MTP_CACHE_DIR, `${hash}_${fileName}`);
+      try { fs.copyFileSync(finalCopied, cacheFile); return cacheFile; } catch { return finalCopied; }
     }
   } catch (e) {
     console.error('[BRIDGE] Extract file error:', e.message);
@@ -681,43 +847,81 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
-  // File Download / Streaming: GET /download?path=...
-  if (urlObj.pathname === '/download') {
+  // CORS Preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Range',
+      'Access-Control-Expose-Headers': 'Content-Length, Content-Range, Content-Disposition',
+    });
+    res.end();
+    return;
+  }
+
+  // File Download / Streaming: GET /download?path=... or /files/download?path=...
+  if (urlObj.pathname === '/download' || urlObj.pathname === '/files/download') {
     const filePath = urlObj.searchParams.get('path');
     if (!filePath) {
-      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.writeHead(400, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
       res.end('Missing path parameter');
       return;
     }
 
-    const localFile = extractMtpFile(filePath);
-    if (localFile && fs.existsSync(localFile)) {
-      const stats = fs.statSync(localFile);
-      const ext = path.extname(localFile).toLowerCase();
-      let mimeType = 'application/octet-stream';
-      if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
-      else if (ext === '.png') mimeType = 'image/png';
-      else if (ext === '.webp') mimeType = 'image/webp';
-      else if (ext === '.gif') mimeType = 'image/gif';
-      else if (ext === '.dng' || ext === '.raw') mimeType = 'image/x-adobe-dng';
-      else if (ext === '.mp4' || ext === '.mov') mimeType = 'video/mp4';
-      else if (ext === '.mp3' || ext === '.m4a' || ext === '.wav') mimeType = 'audio/mpeg';
-      else if (ext === '.pdf') mimeType = 'application/pdf';
-      else if (ext === '.txt' || ext === '.log') mimeType = 'text/plain';
+    extractMtpFileAsync(filePath)
+      .then((localFile) => {
+        if (!localFile || !fs.existsSync(localFile)) {
+          res.writeHead(404, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+          res.end('File could not be extracted from MTP storage. Please ensure phone screen is unlocked.');
+          return;
+        }
 
-      res.writeHead(200, {
-        'Content-Type': mimeType,
-        'Content-Length': stats.size,
-        'Content-Disposition': `inline; filename="${path.basename(localFile)}"`,
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=86400',
+        const stats = fs.statSync(localFile);
+        const ext = path.extname(localFile).toLowerCase();
+        let mimeType = 'application/octet-stream';
+        if (ext === '.jpg' || ext === '.jpeg') mimeType = 'image/jpeg';
+        else if (ext === '.png') mimeType = 'image/png';
+        else if (ext === '.webp') mimeType = 'image/webp';
+        else if (ext === '.gif') mimeType = 'image/gif';
+        else if (ext === '.dng' || ext === '.raw') mimeType = 'image/x-adobe-dng';
+        else if (ext === '.mp4' || ext === '.mov' || ext === '.m4v') mimeType = 'video/mp4';
+        else if (ext === '.mp3' || ext === '.m4a' || ext === '.wav') mimeType = 'audio/mpeg';
+        else if (ext === '.pdf') mimeType = 'application/pdf';
+        else if (ext === '.txt' || ext === '.log') mimeType = 'text/plain';
+
+        const range = req.headers.range;
+        if (range) {
+          const parts = range.replace(/bytes=/, '').split('-');
+          const start = parseInt(parts[0], 10);
+          const end = parts[1] ? parseInt(parts[1], 10) : stats.size - 1;
+          const chunksize = end - start + 1;
+
+          res.writeHead(206, {
+            'Content-Range': `bytes ${start}-${end}/${stats.size}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': chunksize,
+            'Content-Type': mimeType,
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=86400',
+          });
+          fs.createReadStream(localFile, { start, end }).pipe(res);
+          return;
+        }
+
+        res.writeHead(200, {
+          'Content-Type': mimeType,
+          'Content-Length': stats.size,
+          'Accept-Ranges': 'bytes',
+          'Content-Disposition': `inline; filename="${path.basename(localFile)}"`,
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'public, max-age=86400',
+        });
+        fs.createReadStream(localFile).pipe(res);
+      })
+      .catch((err) => {
+        res.writeHead(500, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+        res.end(`Internal extraction error: ${err.message}`);
       });
-      fs.createReadStream(localFile).pipe(res);
-      return;
-    }
-
-    res.writeHead(404, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
-    res.end('File could not be extracted from MTP storage. Please ensure phone screen is unlocked.');
     return;
   }
 
@@ -1209,11 +1413,21 @@ function dispatchMessage(socket, msg) {
     }
 
     case 'GALLERY_LIST_REQUEST': {
-      // Query DCIM, DCIM/Camera, and Pictures from actual MTP storage
-      const dcimCam = queryPhoneMtp('/storage/emulated/0/DCIM/Camera');
-      const dcim = queryPhoneMtp('/storage/emulated/0/DCIM');
-      const pics = queryPhoneMtp('/storage/emulated/0/Pictures');
-      const rawEntries = [...(dcimCam.entries || []), ...(dcim.entries || []), ...(pics.entries || [])];
+      const requestedCategory = msg.payload?.category || 'all';
+
+      // Use cached gallery list if queried within the last 15 seconds
+      const now = Date.now();
+      let rawEntries = [];
+      if (globalThis._galleryCache && now - globalThis._galleryCacheTime < 15000) {
+        rawEntries = globalThis._galleryCache;
+      } else {
+        const dcimCam = queryPhoneMtp('/storage/emulated/0/DCIM/Camera');
+        const dcim = queryPhoneMtp('/storage/emulated/0/DCIM');
+        const pics = queryPhoneMtp('/storage/emulated/0/Pictures');
+        rawEntries = [...(dcimCam.entries || []), ...(dcim.entries || []), ...(pics.entries || [])];
+        globalThis._galleryCache = rawEntries;
+        globalThis._galleryCacheTime = now;
+      }
       
       // Deduplicate by path
       const seen = new Set();
@@ -1225,11 +1439,10 @@ function dispatchMessage(socket, msg) {
         }
       }
 
-      const mediaItems = uniqueEntries
+      let mediaItems = uniqueEntries
         .filter((e) => !e.isDirectory && (
           /\.(jpg|jpeg|png|mp4|webp|mov|raw|dng|m4v)$/i.test(e.name) ||
-          e.mimeType.startsWith('image/') ||
-          e.mimeType.startsWith('video/') ||
+          (e.mimeType && (e.mimeType.startsWith('image/') || e.mimeType.startsWith('video/'))) ||
           e.name.toUpperCase().startsWith('PXL_') ||
           e.name.toUpperCase().startsWith('IMG_') ||
           e.name.toUpperCase().startsWith('VID_')
@@ -1239,7 +1452,7 @@ function dispatchMessage(socket, msg) {
           const isVid = /\.(mp4|mov|m4v|mkv)$/i.test(e.name) || (e.mimeType && e.mimeType.startsWith('video/'));
           const mime = e.mimeType || (isVid ? 'video/mp4' : 'image/jpeg');
           return {
-            id: `media_${idx}_${Date.now()}`,
+            id: `media_${idx}_${e.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
             path: e.path,
             name: e.name,
             mimeType: mime,
@@ -1255,15 +1468,24 @@ function dispatchMessage(socket, msg) {
           };
         });
 
+      if (requestedCategory === 'camera') {
+        mediaItems = mediaItems.filter((m) => !m.isVideo && (m.path.includes('Camera') || m.albumName === 'Camera'));
+      } else if (requestedCategory === 'videos') {
+        mediaItems = mediaItems.filter((m) => m.isVideo);
+      } else if (requestedCategory === 'screenshots') {
+        mediaItems = mediaItems.filter((m) => m.path.toLowerCase().includes('screenshot'));
+      }
+
       sendWs(
         socket,
         'GALLERY_LIST_RESPONSE',
         {
           items: mediaItems,
           totalCount: mediaItems.length,
+          category: requestedCategory,
           page: 1,
-          pageSize: 50,
-          storageState: dcimCam.status !== 'ERROR' ? dcimCam.status : dcim.status,
+          pageSize: 100,
+          storageState: 'READY',
         },
         reqId
       );

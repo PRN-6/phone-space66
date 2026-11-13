@@ -24,15 +24,23 @@ export const GalleryWindow: React.FC = () => {
   const [activeTab, setActiveTab] = useState<GalleryCategory>(category);
 
   useEffect(() => {
-    if (isConnected && items.length === 0) {
+    if (isConnected) {
       galleryService.fetchGallery(activeTab);
     }
-  }, [isConnected, activeTab, items.length]);
+  }, [isConnected, activeTab]);
 
   const handleTabChange = (cat: GalleryCategory) => {
     setActiveTab(cat);
     galleryService.fetchGallery(cat);
   };
+
+  const filteredItems = items.filter((item) => {
+    const isVid = item.mimeType?.startsWith('video/') || (item as unknown as { isVideo?: boolean }).isVideo || /\.(mp4|mov|mkv|m4v)$/i.test(item.name);
+    if (activeTab === 'videos') return isVid;
+    if (activeTab === 'camera') return !isVid && (item.path.includes('Camera') || item.albumName === 'Camera');
+    if (activeTab === 'screenshots') return item.path.toLowerCase().includes('screenshot');
+    return true; // 'all'
+  });
 
   const getMediaUrl = (urlPath: string) => {
     if (!urlPath) return '';
@@ -119,7 +127,7 @@ export const GalleryWindow: React.FC = () => {
         {/* Right Actions */}
         <div className="flex items-center space-x-2">
           <span className="text-[11px] font-mono text-silver-500">
-            {items.length} items
+            {filteredItems.length} items
           </span>
           <button
             onClick={() => galleryService.fetchGallery(activeTab)}
@@ -142,7 +150,13 @@ export const GalleryWindow: React.FC = () => {
               Connect PHONE SPACE66 Companion to browse and stream your phone's photo and video gallery.
             </p>
           </div>
-        ) : items.length === 0 ? (
+        ) : isLoading && filteredItems.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-2">
+            <RotateCw className="w-8 h-8 text-silver-400 animate-spin" />
+            <h4 className="text-sm font-semibold text-silver-300">Loading Media...</h4>
+            <p className="text-xs text-silver-500">Scanning phone camera and pictures storage.</p>
+          </div>
+        ) : filteredItems.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-2">
             <Image className="w-12 h-12 text-silver-600" />
             <h4 className="text-sm font-semibold text-silver-300">No Media Found</h4>
@@ -156,7 +170,7 @@ export const GalleryWindow: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {items.map((item) => {
+            {filteredItems.map((item) => {
               const isVideo = item.mimeType?.startsWith('video') || (item as unknown as { isVideo?: boolean }).isVideo;
               const rawThumb = item.thumbnailUrl || (item as unknown as { thumbnailUri?: string }).thumbnailUri || item.downloadUrl || (item as unknown as { uri?: string }).uri || '';
               const thumbUrl = getMediaUrl(rawThumb);
@@ -204,7 +218,7 @@ export const GalleryWindow: React.FC = () => {
 
       {/* Footer Info Bar */}
       <div className="h-8 px-4 bg-charcoal-900 border-t border-white/10 flex items-center justify-between text-[11px] text-silver-400 font-mono">
-        <span>{items.length} media items loaded</span>
+        <span>{filteredItems.length} media items loaded</span>
         <span>Storage: /storage/emulated/0</span>
       </div>
 
